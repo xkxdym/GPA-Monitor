@@ -1,449 +1,9 @@
-﻿<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CPA监控 - 授权同步</title>
-  <style>
-    :root {
-      --bg: #f4f7fb;
-      --bg-top: #eaf2ff;
-      --bg-orb-a: rgba(14, 165, 233, 0.12);
-      --bg-orb-b: rgba(20, 184, 166, 0.12);
-      --panel: #fff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #e5e7eb;
-      --line-strong: #cbd5e1;
-      --input-bg: #fff;
-      --input-text: #111827;
-      --ghost-bg: #e2e8f0;
-      --ghost-text: #334155;
-      --pill-bg: #f8fafc;
-      --card-shadow: 0 4px 20px rgba(2, 6, 23, 0.06);
-      --accent: #0f766e;
-      --warn: #b45309;
-      --bad: #b91c1c;
-      --good: #166534;
-    }
-    [data-theme="dark"] {
-      --bg: #0b1220;
-      --bg-top: #0f1b33;
-      --bg-orb-a: rgba(56, 189, 248, 0.14);
-      --bg-orb-b: rgba(45, 212, 191, 0.14);
-      --panel: #0f172a;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --line: #243247;
-      --line-strong: #334155;
-      --input-bg: #111c30;
-      --input-text: #e2e8f0;
-      --ghost-bg: #1d2a3f;
-      --ghost-text: #cbd5e1;
-      --pill-bg: #111c30;
-      --card-shadow: 0 8px 26px rgba(2, 6, 23, 0.45);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background:
-        radial-gradient(1200px 500px at 8% -10%, var(--bg-orb-a), transparent 62%),
-        radial-gradient(1000px 420px at 92% -16%, var(--bg-orb-b), transparent 60%),
-        linear-gradient(180deg, var(--bg-top) 0, var(--bg) 220px);
-      color: var(--text);
-      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    }
-    .wrap { max-width: 1320px; margin: 22px auto 40px; padding: 0 16px; }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      box-shadow: var(--card-shadow);
-      padding: 16px;
-      margin-bottom: 14px;
-    }
-    h1 { margin: 0; font-size: 22px; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { opacity: 0.9; }
-    .small { color: var(--muted); font-size: 12px; }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-    .brand-pill {
-      border: 1px solid var(--line-strong);
-      border-radius: 16px;
-      padding: 10px 18px;
-      font-weight: 800;
-      letter-spacing: 1.6px;
-      text-transform: uppercase;
-      color: var(--text);
-      background: linear-gradient(180deg, var(--panel) 0%, var(--pill-bg) 100%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    }
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .chip-group {
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--pill-bg);
-      padding: 4px;
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-    }
-    .chip-btn {
-      height: 30px;
-      border: 0;
-      border-radius: 999px;
-      padding: 0 12px;
-      font-size: 12px;
-      background: transparent;
-      color: var(--muted);
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .chip-btn.active {
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--line);
-      box-shadow: var(--card-shadow);
-    }
-    .chip-link {
-      height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 0 14px;
-      background: var(--panel);
-      color: var(--text);
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      font-weight: 700;
-      font-size: 12px;
-    }
-    .pill {
-      display: inline-block;
-      border: 1px solid var(--line-strong);
-      border-radius: 999px;
-      padding: 4px 10px;
-      margin-right: 8px;
-      background: var(--pill-bg);
-      font-size: 12px;
-      color: var(--text);
-    }
-    .theme-switch {
-      height: 30px;
-      border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      background: var(--input-bg);
-      color: var(--input-text);
-      padding: 0 8px;
-      font-size: 12px;
-    }
-    .kpis {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(140px, 1fr));
-      gap: 10px;
-    }
-    .kpi {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--pill-bg);
-      padding: 10px;
-    }
-    .kpi .t { color: var(--muted); font-size: 12px; }
-    .kpi .v { margin-top: 6px; font-size: 18px; font-weight: 700; }
-    .good { color: var(--good); }
-    .warn { color: var(--warn); }
-    .bad { color: var(--bad); }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 10px;
-      align-items: end;
-    }
-    .field { grid-column: span 12; }
-    .field.sm { grid-column: span 3; }
-    .field.md { grid-column: span 6; }
-    .field label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
-    .field input, .field select, .field textarea {
-      width: 100%;
-      border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      font-size: 14px;
-      background: var(--input-bg);
-      color: var(--input-text);
-    }
-    .field input, .field select { height: 38px; padding: 0 10px; }
-    .field textarea { min-height: 110px; padding: 10px; resize: vertical; line-height: 1.5; }
-    .checkline {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      align-items: center;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px;
-      background: var(--pill-bg);
-    }
-    .checkline label { font-size: 13px; color: var(--text); }
-    .section-title {
-      margin: 8px 0 0;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-      text-transform: uppercase;
-    }
-    .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
-    button {
-      border: 0;
-      border-radius: 8px;
-      height: 36px;
-      padding: 0 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.15s ease, opacity 0.15s ease;
-    }
-    button:hover { transform: translateY(-1px); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-ghost { background: var(--ghost-bg); color: var(--ghost-text); border: 1px solid var(--line); }
-    .status { margin-top: 8px; min-height: 18px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
-    .hint { color: var(--muted); font-size: 12px; }
-    .inline-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .tagbox {
-      min-height: 38px;
-      border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      background: var(--input-bg);
-      color: var(--input-text);
-      padding: 6px;
-      display: flex;
-      align-items: center;
-      align-content: flex-start;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .tagbox.compact {
-      min-height: 34px;
-      padding: 5px;
-      gap: 5px;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
-      white-space: nowrap;
-    }
-    .tag-chip {
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--pill-bg);
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1;
-      padding: 6px 10px;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.15s ease;
-      flex: 0 0 auto;
-    }
-    .tag-chip:hover {
-      border-color: var(--accent);
-      color: var(--text);
-    }
-    .tag-chip.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-    .tag-empty {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    .table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: 60vh; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px 6px; vertical-align: middle; }
-    th { background: var(--pill-bg); font-size: 12px; position: sticky; top: 0; z-index: 1; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    details { margin-top: 10px; }
-    details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
-    .raw { width: 100%; min-height: 160px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px; font-size: 12px; }
-    @media (max-width: 980px) {
-      .field.sm, .field.md { grid-column: span 12; }
-      .kpis { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
-      .top-actions { justify-content: flex-start; }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="topbar">
-        <div class="brand-pill">CPA授权同步</div>
-        <div class="top-actions">
-          <div class="chip-group" title="主题模式">
-            <button id="themeLightBtn" class="chip-btn" type="button">Light</button>
-            <button id="themeDarkBtn" class="chip-btn" type="button">Dark</button>
-            <button id="themeAutoBtn" class="chip-btn" type="button">Auto</button>
-          </div>
-          <a class="chip-link" href="/">监控页面</a>
-          <a class="chip-link" href="/config.html">配置中心</a>
-          <select id="themeMode" class="theme-switch" title="主题模式" style="display:none;">
-            <option value="auto">跟随系统</option>
-            <option value="light">浅色</option>
-            <option value="dark">深色</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-top:10px;">
-        <span class="pill">同步状态：<span id="syncRunning">-</span></span>
-        <span class="pill">同步类型：<span id="syncType">-</span></span>
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="kpis">
-        <div class="kpi"><div class="t">下次计划时间</div><div class="v mono" id="nextRunAt">-</div></div>
-        <div class="kpi"><div class="t">上次周期结果</div><div class="v" id="lastCycleStatus">-</div></div>
-        <div class="kpi"><div class="t">上次成功/失败/跳过</div><div class="v mono" id="lastCycleSummary">-</div></div>
-        <div class="kpi"><div class="t">上次耗时</div><div class="v mono" id="lastCycleDuration">-</div></div>
-      </div>
-      <div class="actions">
-        <button id="runSyncBtn" class="btn-primary">立即同步</button>
-        <button id="reloadStatusBtn" class="btn-ghost">刷新状态</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="inline-tools">
-        <button id="fetchAuthFilesBtn" class="btn-ghost">手动获取认证文件列表</button>
-        <button id="fetchSub2GroupsBtn" class="btn-ghost">获取sub2分组列表</button>
-        <button id="selectAllFilesBtn" class="btn-ghost">全选</button>
-        <button id="clearSelectedFilesBtn" class="btn-ghost">清空选择</button>
-        <button id="applySelectedGroupBtn" class="btn-ghost">将分组应用到已选文件</button>
-        <div id="bulkTargetGroupTags" class="tagbox" style="min-width:260px; max-width:620px;" title="点击标签可多选/取消">
-          <span class="tag-empty">请先获取 sub2 分组列表</span>
-        </div>
-        <button id="syncSelectedFilesBtn" class="btn-primary">同步选中认证文件</button>
-      </div>
-      <div class="hint" id="authFilesHint" style="margin-top:8px;">点击“手动获取认证文件列表”后可勾选同步。</div>
-      <div class="table-wrap" style="margin-top:10px; max-height:40vh;">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:44px;">选中</th>
-              <th>文件名</th>
-              <th>最后刷新token时间</th>
-              <th style="width:260px; min-width:260px;">目标分组</th>
-              <th>同步sub2</th>
-              <th>同步时间</th>
-              <th>状态</th>
-              <th>运行同步</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="authFilesTbody"></tbody>
-        </table>
-      </div>
-      <div class="actions" style="margin-top:10px;">
-        <button id="syncGroupsFromSub2Btn" class="btn-ghost">从sub2同步分组</button>
-        <button id="syncAllGroupsFromSub2Btn" class="btn-ghost">同步全部文件分组</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="status" id="status"></div>
-    </div>
-
-    <div class="card">
-      <div class="actions" style="margin-top:0;">
-        <div class="field sm" style="max-width:220px;">
-          <label>每页条数</label>
-          <select id="recordPageSize">
-            <option value="20">20</option>
-            <option value="50" selected>50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-          </select>
-        </div>
-        <div class="field md" style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
-          <button id="reloadCycleRecordsBtn" class="btn-ghost" type="button">刷新周期记录</button>
-          <button id="recordPrevBtn" class="btn-ghost" type="button">上一页</button>
-          <button id="recordNextBtn" class="btn-ghost" type="button">下一页</button>
-          <span id="recordPageInfo" class="small">第 1 / 1 页，共 0 条</span>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>类型</th>
-              <th>状态</th>
-              <th>文件/摘要</th>
-              <th>说明</th>
-            </tr>
-          </thead>
-          <tbody id="recordsTbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="actions" style="margin-top:0;">
-        <div class="field sm" style="max-width:220px;">
-          <label>文件记录每页条数</label>
-          <select id="fileRecordPageSize">
-            <option value="20">20</option>
-            <option value="50" selected>50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-          </select>
-        </div>
-        <div class="field md" style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
-          <button id="reloadFileRecordsBtn" class="btn-ghost" type="button">刷新文件记录</button>
-          <button id="fileRecordPrevBtn" class="btn-ghost" type="button">上一页</button>
-          <button id="fileRecordNextBtn" class="btn-ghost" type="button">下一页</button>
-          <span id="fileRecordPageInfo" class="small">第 1 / 1 页，共 0 条</span>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>文件名</th>
-              <th>触发方式</th>
-              <th>状态</th>
-              <th>同步sub2</th>
-              <th>同步时间</th>
-              <th>说明</th>
-            </tr>
-          </thead>
-          <tbody id="fileRecordsTbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
     const $ = (id) => document.getElementById(id);
     const THEME_KEY = "cpa_theme_mode_v1";
     let authFiles = [];
     let sub2Groups = [];
     let sub2GroupsLoadedAt = null;
-    let bulkTargetGroupIds = [];
     const selectedAuthFiles = new Set();
     let lastAuthFilesFetchedAt = null;
     let recordPage = 1;
@@ -562,51 +122,6 @@
       return "";
     }
 
-    function normalizeGroupIds(values) {
-      const out = [];
-      const seen = new Set();
-      const list = Array.isArray(values) ? values : [];
-      for (const v of list) {
-        const gid = Number(v || 0);
-        if (!(gid > 0) || seen.has(gid)) continue;
-        seen.add(gid);
-        out.push(gid);
-      }
-      return out;
-    }
-
-    function groupChipLabel(group) {
-      const gid = Number((group && group.id) || 0);
-      const label = String((group && group.name) || `group-${gid}`);
-      return label;
-    }
-
-    function buildGroupTags(selectedIds = []) {
-      const selectedSet = new Set(normalizeGroupIds(selectedIds));
-      const list = Array.isArray(sub2Groups) ? sub2Groups : [];
-      if (!list.length) return `<span class="tag-empty">暂无可选分组</span>`;
-      return list.map((g) => {
-        const gid = Number(g.id || 0);
-        if (!(gid > 0)) return "";
-        const active = selectedSet.has(gid) ? " active" : "";
-        const text = groupChipLabel(g);
-        return `<span class="tag-chip${active}" data-group-id="${gid}" title="点击选择/取消">${esc(text)}</span>`;
-      }).join("");
-    }
-
-    function readTagBoxSelectedIds(box) {
-      if (!box) return [];
-      const ids = [...box.querySelectorAll(".tag-chip.active[data-group-id]")]
-        .map((el) => Number(el.getAttribute("data-group-id") || 0));
-      return normalizeGroupIds(ids);
-    }
-
-    function toggleTagChip(chip) {
-      if (!chip) return false;
-      chip.classList.toggle("active");
-      return chip.classList.contains("active");
-    }
-
     async function api(path, opts = {}) {
       const r = await fetch(path, opts);
       const d = await r.json().catch(() => ({}));
@@ -684,31 +199,45 @@
     function renderAuthFiles() {
       const tb = $("authFilesTbody");
       if (!Array.isArray(authFiles) || !authFiles.length) {
-        tb.innerHTML = `<tr><td colspan="9" style="color:var(--muted);">暂无认证文件，请先手动获取。</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="10" style="color:var(--muted);">暂无认证文件，请先手动获取。</td></tr>`;
         const tsText = lastAuthFilesFetchedAt ? `上次获取认证文件列表时间：${fmtTime(lastAuthFilesFetchedAt)}。` : "";
         $("authFilesHint").textContent = `当前列表为空。${tsText}`;
         return;
+      }
+      function buildGroupOptions(selectedIds) {
+        const selectedSet = new Set((selectedIds || []).map((x) => Number(x || 0)).filter((x) => x > 0));
+        return (sub2Groups || []).map((g) => {
+          const gid = Number(g.id || 0);
+          const label = String(g.name || `group-${gid}`);
+          const platform = String(g.platform || "").trim();
+          const status = String(g.status || "").trim();
+          const suffix = [platform, status].filter(Boolean).join("/");
+          const selected = selectedSet.has(gid) ? " selected" : "";
+          return `<option value="${gid}"${selected}>${esc(`${label}${suffix ? ` (${suffix})` : ""}`)}</option>`;
+        }).join("");
       }
       tb.innerHTML = authFiles.map((row) => {
         const name = String(row.name || "");
         const checked = selectedAuthFiles.has(name) ? "checked" : "";
         const statusLabel = statusText(row.status);
         const rowStatusClass = statusClass(row.status);
+        const provider = row.provider_detected || row.provider || row.type || "-";
         const syncEnabled = !!row.sync_enabled;
         const syncedText = row.synced_to_sub2 ? "是" : "否";
         const syncedClass = row.synced_to_sub2 ? "good" : "warn";
         const tokenRefreshTimeRaw = pickTokenRefreshAt(row) || row.cached_fetched_at || lastAuthFilesFetchedAt;
         const fetchedTime = tokenRefreshTimeRaw ? fmtTime(tokenRefreshTimeRaw) : "-";
         const syncTime = row.sync_time ? fmtTime(row.sync_time) : "-";
-        const gids = normalizeGroupIds(row.target_group_ids);
+        const gids = Array.isArray(row.target_group_ids) ? row.target_group_ids.map((x) => Number(x || 0)).filter((x) => x > 0) : [];
         return `<tr>
           <td><input type="checkbox" data-file-name="${esc(name)}" ${checked} /></td>
           <td class="mono">${esc(name)}</td>
+          <td>${esc(provider)}</td>
           <td class="mono">${esc(fetchedTime)}</td>
           <td>
-            <div class="tagbox compact" data-target-group-name="${esc(name)}" data-selected="${esc(gids.join(","))}" style="width:260px; min-width:260px; max-width:260px;">
-              ${buildGroupTags(gids)}
-            </div>
+            <select data-target-group-name="${esc(name)}" multiple size="4" style="min-width:200px; height:auto; min-height:96px;">
+              ${buildGroupOptions(gids)}
+            </select>
           </td>
           <td class="${syncedClass}">${syncedText}</td>
           <td class="mono">${esc(syncTime)}</td>
@@ -833,12 +362,17 @@
     }
 
     function renderSub2GroupOptions() {
-      const box = $("bulkTargetGroupTags");
-      if (!box) return;
-      const validIds = new Set((sub2Groups || []).map((g) => Number(g.id || 0)).filter((x) => x > 0));
-      bulkTargetGroupIds = normalizeGroupIds(bulkTargetGroupIds).filter((gid) => validIds.has(gid));
-      box.innerHTML = buildGroupTags(bulkTargetGroupIds);
-      box.setAttribute("data-selected", bulkTargetGroupIds.join(","));
+      const sel = $("bulkTargetGroupSelect");
+      if (!sel) return;
+      const options = (sub2Groups || []).map((g) => {
+        const gid = Number(g.id || 0);
+        const label = String(g.name || `group-${gid}`);
+        const platform = String(g.platform || "").trim();
+        const status = String(g.status || "").trim();
+        const suffix = [platform, status].filter(Boolean).join("/");
+        return `<option value="${gid}">${esc(`${label}${suffix ? ` (${suffix})` : ""}`)}</option>`;
+      });
+      sel.innerHTML = options.join("");
     }
 
     async function fetchSub2Groups(silent = false) {
@@ -854,7 +388,7 @@
     async function setFilesTargetGroups(files, targetGroupIds) {
       const names = Array.isArray(files) ? files.map((x) => String(x || "").trim()).filter(Boolean) : [];
       if (!names.length) return;
-      const gids = normalizeGroupIds(targetGroupIds);
+      const gids = Array.isArray(targetGroupIds) ? targetGroupIds.map((x) => Number(x || 0)).filter((x) => x > 0) : [];
       await api("/api/auth-sync/files-groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -870,7 +404,7 @@
     }
 
     async function applySelectedGroupToCheckedFiles() {
-      const selected = readTagBoxSelectedIds($("bulkTargetGroupTags"));
+      const selected = [...$("bulkTargetGroupSelect").selectedOptions].map((x) => Number(x.value || 0)).filter((x) => x > 0);
       if (!selectedAuthFiles.size) {
         setStatus("请先勾选至少一个认证文件。", "warn");
         return;
@@ -878,35 +412,6 @@
       const files = [...selectedAuthFiles];
       await setFilesTargetGroups(files, selected);
       setStatus(`已为 ${files.length} 个文件${selected.length ? `设置 ${selected.length} 个分组` : "清空分组"}。`);
-    }
-
-    async function syncGroupsFromSub2(filesInput = null) {
-      const files = Array.isArray(filesInput) ? filesInput : [...selectedAuthFiles];
-      if (!files.length) {
-        setStatus("请先勾选至少一个认证文件。", "warn");
-        return;
-      }
-      setStatus(`正在从 sub2 同步 ${files.length} 个文件的目标分组...`);
-      const d = await api("/api/auth-sync/files-groups-sync-from-sub2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files }),
-      });
-      const data = (d && d.data) || {};
-      const summary = data.sync_summary || {};
-      await fetchAuthFiles(true);
-      setStatus(
-        `从 sub2 同步分组完成：total=${summary.total || 0}, ok=${summary.ok || 0}, skipped=${summary.skipped || 0}, failed=${summary.failed || 0}，本地更新 ${data.updated || 0} 个文件。`
-      );
-    }
-
-    async function syncAllGroupsFromSub2() {
-      const files = authFiles.map((x) => String((x && x.name) || "").trim()).filter(Boolean);
-      if (!files.length) {
-        setStatus("当前没有可同步的认证文件，请先获取认证文件列表。", "warn");
-        return;
-      }
-      await syncGroupsFromSub2(files);
     }
 
     function selectAllFiles() {
@@ -952,8 +457,6 @@
     $("reloadCycleRecordsBtn").addEventListener("click", () => reloadRecords().catch((e) => setStatus(`周期记录刷新失败: ${e.message}`, "error")));
     $("fetchAuthFilesBtn").addEventListener("click", () => fetchAuthFiles().catch((e) => setStatus(`获取认证文件失败: ${e.message}`, "error")));
     $("fetchSub2GroupsBtn").addEventListener("click", () => fetchSub2Groups().catch((e) => setStatus(`获取 sub2 分组失败: ${e.message}`, "error")));
-    $("syncGroupsFromSub2Btn").addEventListener("click", () => syncGroupsFromSub2().catch((e) => setStatus(`从 sub2 同步分组失败: ${e.message}`, "error")));
-    $("syncAllGroupsFromSub2Btn").addEventListener("click", () => syncAllGroupsFromSub2().catch((e) => setStatus(`同步全部文件分组失败: ${e.message}`, "error")));
     $("selectAllFilesBtn").addEventListener("click", selectAllFiles);
     $("clearSelectedFilesBtn").addEventListener("click", clearSelectedFiles);
     $("applySelectedGroupBtn").addEventListener("click", () => applySelectedGroupToCheckedFiles().catch((e) => setStatus(`应用分组失败: ${e.message}`, "error")));
@@ -980,12 +483,16 @@
     });
     $("syncSelectedFilesBtn").addEventListener("click", () => syncSelectedFiles().catch((e) => setStatus(`同步选中文件失败: ${e.message}`, "error")));
     $("themeMode").addEventListener("change", () => applyTheme($("themeMode").value));
-    $("bulkTargetGroupTags").addEventListener("click", (e) => {
-      const chip = e.target && e.target.closest ? e.target.closest(".tag-chip[data-group-id]") : null;
-      if (!chip) return;
-      toggleTagChip(chip);
-      bulkTargetGroupIds = readTagBoxSelectedIds($("bulkTargetGroupTags"));
-      $("bulkTargetGroupTags").setAttribute("data-selected", bulkTargetGroupIds.join(","));
+    document.addEventListener("mousedown", (e) => {
+      const opt = e.target && e.target.closest ? e.target.closest("option") : null;
+      if (!opt) return;
+      const sel = opt.parentElement;
+      if (!sel || sel.tagName !== "SELECT" || !sel.multiple) return;
+      const isTarget = sel.id === "bulkTargetGroupSelect" || !!sel.getAttribute("data-target-group-name");
+      if (!isTarget) return;
+      e.preventDefault();
+      opt.selected = !opt.selected;
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
     });
     $("authFilesTbody").addEventListener("change", (e) => {
       const el = e.target;
@@ -1004,23 +511,15 @@
       else selectedAuthFiles.delete(name);
       $("authFilesHint").textContent = `共 ${authFiles.length} 个文件，已选择 ${selectedAuthFiles.size} 个。`;
     });
+    $("authFilesTbody").addEventListener("change", (e) => {
+      const el = e.target;
+      if (!el || el.tagName !== "SELECT") return;
+      const name = String(el.getAttribute("data-target-group-name") || "").trim();
+      if (!name) return;
+      const gids = [...el.selectedOptions].map((x) => Number(x.value || 0)).filter((x) => x > 0);
+      setFilesTargetGroups([name], gids).catch((er) => setStatus(`更新目标分组失败: ${er.message}`, "error"));
+    });
     $("authFilesTbody").addEventListener("click", (e) => {
-      const chip = e.target && e.target.closest ? e.target.closest(".tag-chip[data-group-id]") : null;
-      if (chip) {
-        const box = chip.closest("[data-target-group-name]");
-        const name = String((box && box.getAttribute("data-target-group-name")) || "").trim();
-        if (!name) return;
-        toggleTagChip(chip);
-        const gids = readTagBoxSelectedIds(box);
-        box.setAttribute("data-selected", gids.join(","));
-        setFilesTargetGroups([name], gids).catch((er) => {
-          toggleTagChip(chip);
-          const rollbackIds = readTagBoxSelectedIds(box);
-          box.setAttribute("data-selected", rollbackIds.join(","));
-          setStatus(`更新目标分组失败: ${er.message}`, "error");
-        });
-        return;
-      }
       const btn = e.target.closest("button[data-file-act]");
       if (!btn) return;
       const act = String(btn.getAttribute("data-file-act") || "");
@@ -1067,9 +566,4 @@
         setStatus(`初始化失败: ${e.message}`, "error");
       }
     })();
-  </script>
-</body>
-</html>
-
-
-
+  

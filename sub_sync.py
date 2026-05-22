@@ -766,6 +766,37 @@ def list_sub2_accounts(cfg: SyncConfig, search: str, page: int = 1, page_size: i
     return parse_sub2_account_items(payload)
 
 
+def derive_sub2_groups_url(import_url: str) -> str:
+    accounts_url = derive_sub2_accounts_url(import_url)
+    if not accounts_url:
+        return ""
+    if accounts_url.endswith("/accounts"):
+        return f"{accounts_url[:-len('/accounts')]}/groups/all"
+    return f"{accounts_url.rstrip('/')}/groups/all"
+
+
+def list_sub2_groups(cfg: SyncConfig, platform: str = "") -> List[Dict[str, Any]]:
+    groups_url = derive_sub2_groups_url(cfg.sub2api.import_url)
+    if not groups_url:
+        raise RuntimeError("sub2 groups url is empty")
+    q = {}
+    p = str(platform or "").strip()
+    if p:
+        q["platform"] = p
+    url = f"{groups_url}?{parse.urlencode(q)}" if q else groups_url
+    _, payload = http_json(
+        method="GET",
+        url=url,
+        headers=sub_headers(cfg),
+        timeout=cfg.sub2api.timeout_seconds,
+        verify_ssl=cfg.sub2api.verify_ssl,
+    )
+    data = unwrap_data(payload)
+    if isinstance(data, list):
+        return [x for x in data if isinstance(x, dict)]
+    return []
+
+
 def delete_sub2_account(cfg: SyncConfig, account_id: int) -> None:
     base_url = derive_sub2_accounts_url(cfg.sub2api.import_url)
     if not base_url:
@@ -778,6 +809,121 @@ def delete_sub2_account(cfg: SyncConfig, account_id: int) -> None:
         timeout=cfg.sub2api.timeout_seconds,
         verify_ssl=cfg.sub2api.verify_ssl,
     )
+
+
+def bind_sub2_account_groups(cfg: SyncConfig, account_id: int, group_ids: List[int]) -> None:
+    base_url = derive_sub2_accounts_url(cfg.sub2api.import_url)
+    if not base_url:
+        raise RuntimeError("sub2 account url is empty")
+    gid_list = []
+    for v in group_ids or []:
+        try:
+            iv = int(v)
+        except Exception:
+            continue
+        if iv > 0 and iv not in gid_list:
+            gid_list.append(iv)
+    if not gid_list:
+        return
+    body = json.dumps({"group_ids": gid_list}, ensure_ascii=False).encode("utf-8")
+    http_json(
+        method="PUT",
+        url=f"{base_url}/{int(account_id)}",
+        headers=sub_headers(cfg),
+        timeout=cfg.sub2api.timeout_seconds,
+        verify_ssl=cfg.sub2api.verify_ssl,
+        body=body,
+    )
+
+
+def extract_sub2_account_group_ids(account_item: Dict[str, Any]) -> List[int]:
+    if not isinstance(account_item, dict):
+        return []
+    out: List[int] = []
+
+    def add_gid(v: Any) -> None:
+        try:
+            iv = int(v)
+        except Exception:
+            return
+        if iv > 0 and iv not in out:
+            out.append(iv)
+
+    for key in ("group_ids", "groupIds"):
+        val = account_item.get(key)
+        if isinstance(val, list):
+            for x in val:
+                add_gid(x)
+        elif val is not None:
+            add_gid(val)
+
+    for key in ("groups", "group_list", "groupList"):
+        val = account_item.get(key)
+        if not isinstance(val, list):
+            continue
+        for x in val:
+            if isinstance(x, dict):
+                add_gid(x.get("id"))
+                add_gid(x.get("group_id"))
+                add_gid(x.get("groupId"))
+            else:
+                add_gid(x)
+
+    add_gid(account_item.get("group_id"))
+    add_gid(account_item.get("groupId"))
+    return out
+
+
+def find_sub2_account_for_binding(cfg: SyncConfig, account_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    target_name = str((account_payload or {}).get("name", "") or "").strip()
+    if not target_name:
+        return None
+    target_platform = str((account_payload or {}).get("platform", "") or "").strip().lower()
+    target_type = str((account_payload or {}).get("type", "") or "").strip().lower()
+    page = 1
+    page_size = 200
+    while page <= 5:
+        items, total = list_sub2_accounts(cfg, search=target_name, page=page, page_size=page_size)
+        matched = []
+        for item in items:
+            if str(item.get("name", "") or "").strip() != target_name:
+                continue
+            if target_platform and str(item.get("platform", "") or "").strip().lower() != target_platform:
+                continue
+            if target_type and str(item.get("type", "") or "").strip().lower() != target_type:
+                continue
+            matched.append(item)
+        for item in matched:
+            try:
+                aid = int(item.get("id"))
+            except Exception:
+                continue
+            if aid > 0:
+                return item
+        if total is not None and page * page_size >= int(total):
+            break
+        if not items:
+            break
+        page += 1
+    return None
+
+
+def find_sub2_account_id_for_binding(cfg: SyncConfig, account_payload: Dict[str, Any]) -> Optional[int]:
+    item = find_sub2_account_for_binding(cfg, account_payload)
+    if not isinstance(item, dict):
+        return None
+    try:
+        aid = int(item.get("id"))
+    except Exception:
+        return None
+    return aid if aid > 0 else None
+
+
+def bind_sub2_groups_for_account_payload(cfg: SyncConfig, account_payload: Dict[str, Any], group_ids: List[int]) -> None:
+    aid = find_sub2_account_id_for_binding(cfg, account_payload)
+    if not aid:
+        raise RuntimeError(f"找不到刚同步的 sub2 账号用于分组绑定: {str((account_payload or {}).get('name', '') or '')}")
+    bind_sub2_account_groups(cfg, aid, group_ids)
 
 
 def replace_sub2_accounts_by_email(cfg: SyncConfig, account_payload: Dict[str, Any]) -> int:
@@ -1020,6 +1166,7 @@ class SyncManager:
         cpa_source_getter: Optional[Callable[[], Dict[str, Any]]] = None,
         file_audit_hook: Optional[Callable[[Dict[str, Any]], None]] = None,
         cached_enabled_name_getter: Optional[Callable[[], set]] = None,
+        cached_entry_getter: Optional[Callable[[List[str]], Dict[str, Dict[str, Any]]]] = None,
         record_db_path: Optional[str] = None,
     ) -> None:
         self.root_dir = Path(root_dir)
@@ -1027,6 +1174,7 @@ class SyncManager:
         self._cpa_source_getter = cpa_source_getter
         self._file_audit_hook = file_audit_hook
         self._cached_enabled_name_getter = cached_enabled_name_getter
+        self._cached_entry_getter = cached_entry_getter
         self._record_db_path = str(record_db_path or (self.root_dir / "stats.db"))
         self._cfg_lock = threading.Lock()
         self._raw_config = deep_merge_dict(build_default_raw_config(), raw_config or {})
@@ -1071,12 +1219,14 @@ class SyncManager:
         new_cfg = parse_config(merged)
         if new_cfg.interval_seconds <= 0:
             raise ValueError("interval_seconds must be > 0")
-        self._save_raw_config(merged)
+        persisted_raw = self._save_raw_config(merged)
+        effective_raw = persisted_raw if isinstance(persisted_raw, dict) else merged
+        effective_cfg = parse_config(effective_raw)
         with self._cfg_lock:
-            self._raw_config = copy.deepcopy(merged)
-            self._cfg = new_cfg
-            self._record_store = SyncRecordStore(self._record_db_path, new_cfg.max_record_items, retention_days=7)
-            self._next_run_at = time.time() + max(1, new_cfg.interval_seconds)
+            self._raw_config = copy.deepcopy(effective_raw)
+            self._cfg = effective_cfg
+            self._record_store = SyncRecordStore(self._record_db_path, effective_cfg.max_record_items, retention_days=7)
+            self._next_run_at = time.time() + max(1, effective_cfg.interval_seconds)
         self._record_store.add({"kind": "config", "status": "success", "message": "config updated"})
 
     def request_run(self, trigger: str = "manual") -> None:
@@ -1264,11 +1414,55 @@ class SyncManager:
         cfg = parse_config(merged)
         return validate_sub2api_auth(cfg)
 
+    def list_sub2_groups(self, raw_override: Optional[Dict[str, Any]] = None, platform: str = "") -> List[Dict[str, Any]]:
+        with self._cfg_lock:
+            current_raw = copy.deepcopy(self._raw_config)
+        override = raw_override if isinstance(raw_override, dict) else {}
+        merged = deep_merge_dict(current_raw, override)
+        cfg = parse_config(merged)
+        return list_sub2_groups(cfg, platform=platform)
+
+    def pull_sub2_groups_for_files(self, file_names: List[str], raw_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        selected = self._normalize_selected_files(file_names)
+        cfg = self._runtime_cfg_with_override(raw_override)
+        items: List[Dict[str, Any]] = []
+        mapping: Dict[str, List[int]] = {}
+        ok = failed = skipped = 0
+        for file_name in selected:
+            try:
+                auth_doc = download_cpa_auth_file(cfg, file_name)
+                account = convert_to_sub2api_account(cfg, file_name, auth_doc)
+                if not account:
+                    skipped += 1
+                    items.append({"file": file_name, "status": "skipped", "message": "无法识别账号映射"})
+                    continue
+                matched = find_sub2_account_for_binding(cfg, account)
+                if not isinstance(matched, dict):
+                    skipped += 1
+                    items.append({"file": file_name, "status": "skipped", "message": "sub2 中未找到对应账号"})
+                    continue
+                gids = extract_sub2_account_group_ids(matched)
+                mapping[file_name] = list(gids)
+                ok += 1
+                items.append({"file": file_name, "status": "success", "target_group_ids": gids})
+            except Exception as e:
+                failed += 1
+                items.append({"file": file_name, "status": "failed", "message": str(e)})
+        return {
+            "total": len(selected),
+            "ok": ok,
+            "failed": failed,
+            "skipped": skipped,
+            "group_ids_by_file": mapping,
+            "items": items,
+        }
+
     def sync_selected_files(
         self,
         file_names: List[str],
         trigger: str = "manual_selected",
         raw_override: Optional[Dict[str, Any]] = None,
+        group_ids_by_file: Optional[Dict[str, List[int]]] = None,
     ) -> Dict[str, Any]:
         selected = self._normalize_selected_files(file_names)
 
@@ -1283,6 +1477,10 @@ class SyncManager:
             for file_name in selected:
                 entry = {"name": file_name}
                 try:
+                    if isinstance(group_ids_by_file, dict):
+                        gids = group_ids_by_file.get(file_name)
+                        if isinstance(gids, list):
+                            entry["target_group_ids"] = gids
                     result = self._process_one_file(cfg, entry, trigger, skip_auth_filter=True)
                     if result == "ok":
                         ok += 1
@@ -1355,6 +1553,14 @@ class SyncManager:
             if self._cached_enabled_name_getter:
                 enabled_names = self._cached_enabled_name_getter() or set()
                 files = [item for item in files if str((item or {}).get("name", "")).strip() in enabled_names]
+            file_entry_map: Dict[str, Dict[str, Any]] = {}
+            if self._cached_entry_getter:
+                file_names = [str((item or {}).get("name", "")).strip() for item in files if isinstance(item, dict)]
+                file_names = [x for x in file_names if x]
+                try:
+                    file_entry_map = self._cached_entry_getter(file_names) or {}
+                except Exception:
+                    file_entry_map = {}
             if cfg.max_files_per_cycle > 0:
                 files = files[: cfg.max_files_per_cycle]
             total = len(files)
@@ -1362,6 +1568,11 @@ class SyncManager:
                 file_name = str(item.get("name", "")).strip()
                 if not file_name:
                     continue
+                cached = file_entry_map.get(file_name, {})
+                entry_json = cached.get("entry_json") if isinstance(cached, dict) else {}
+                if isinstance(entry_json, dict) and isinstance(entry_json.get("target_group_ids"), list):
+                    item = dict(item)
+                    item["target_group_ids"] = entry_json.get("target_group_ids")
                 try:
                     result = self._process_one_file(cfg, item, trigger)
                     if result == "ok":
@@ -1465,6 +1676,17 @@ class SyncManager:
             )
             return "skip"
 
+        target_group_ids: List[int] = []
+        for v in entry.get("target_group_ids", []) if isinstance(entry.get("target_group_ids"), list) else []:
+            try:
+                iv = int(v)
+            except Exception:
+                continue
+            if iv > 0 and iv not in target_group_ids:
+                target_group_ids.append(iv)
+        if target_group_ids:
+            account["group_ids"] = list(target_group_ids)
+
         if cfg.save_transformed_dir:
             out_dir = self._resolve_path(cfg.save_transformed_dir)
             ensure_dir(out_dir)
@@ -1525,7 +1747,38 @@ class SyncManager:
             )
             return "fail"
 
+        if target_group_ids:
+            try:
+                bind_sub2_groups_for_account_payload(cfg, account, target_group_ids)
+            except Exception as e:
+                self._audit_file(
+                    {
+                        "ts": now_iso(),
+                        "file_name": file_name,
+                        "trigger": trigger,
+                        "status": "failed",
+                        "synced_to_sub2": True,
+                        "sync_time": now_iso(),
+                        "message": f"synced but group bind failed: {e}",
+                        "auth_doc": auth_doc,
+                        "account": account,
+                    }
+                )
+                self._record_store.add(
+                    {
+                        "kind": "file",
+                        "trigger": trigger,
+                        "file": file_name,
+                        "account_name": account["name"],
+                        "status": "failed",
+                        "message": f"synced but group bind failed: {e}",
+                    }
+                )
+                return "fail"
+
         msg = "synced"
+        if target_group_ids:
+            msg = f"synced; groups={','.join([str(x) for x in target_group_ids])}"
         synced_at = now_iso()
         self._audit_file(
             {

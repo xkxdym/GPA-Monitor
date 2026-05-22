@@ -366,7 +366,8 @@ def init_db():
               file_name TEXT PRIMARY KEY,
               fetched_at TEXT NOT NULL,
               entry_json TEXT NOT NULL DEFAULT '{}',
-              sync_enabled INTEGER NOT NULL DEFAULT 0
+              sync_enabled INTEGER NOT NULL DEFAULT 0,
+              target_group_ids TEXT NOT NULL DEFAULT '[]'
             );
             CREATE INDEX IF NOT EXISTS idx_auth_sync_cached_files_fetched_at ON auth_sync_cached_files(fetched_at DESC);
             """
@@ -383,6 +384,7 @@ def init_db():
         ensure_column(conn, "profiles", "key_user_map_json", "TEXT NOT NULL DEFAULT '{}'")
         ensure_column(conn, "auth_sync_settings", "sub_auth_header", "TEXT NOT NULL DEFAULT 'x-api-key'")
         ensure_column(conn, "auth_sync_cached_files", "sync_enabled", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "auth_sync_cached_files", "target_group_ids", "TEXT NOT NULL DEFAULT '[]'")
         migrate_auth_sync_settings_drop_record_file(conn)
         conn.execute(
             """
@@ -714,7 +716,6 @@ def save_auth_sync_raw_config(raw):
     sub = merged.get("sub2api", {}) if isinstance(merged.get("sub2api"), dict) else {}
     sub_headers = sub.get("headers", {}) if isinstance(sub.get("headers"), dict) else {}
     sub_auth_header, sub_auth_value = _extract_sub_auth_header_pair(sub_headers)
-    preserve_auth_if_empty = bool(sub.get("preserve_auth_if_empty", False))
     clear_auth = bool(sub.get("clear_auth", False))
     f = sync.get("auth_file_filter", {}) if isinstance(sync.get("auth_file_filter"), dict) else {}
     conn = get_conn()
@@ -725,7 +726,7 @@ def save_auth_sync_raw_config(raw):
         if clear_auth:
             sub_auth_header = sub_auth_header or current_header
             sub_auth_value = ""
-        elif not str(sub_auth_value or "").strip() and preserve_auth_if_empty:
+        elif not str(sub_auth_value or "").strip():
             sub_auth_header = current_header
             sub_auth_value = current_value
         conn.execute(
@@ -777,6 +778,28 @@ def save_auth_sync_raw_config(raw):
     finally:
         conn.close()
     return get_auth_sync_raw_config()
+
+
+def apply_auth_sync_override_preserving_auth(override):
+    if not isinstance(override, dict):
+        return {}
+    out = dict(override)
+    sub = out.get("sub2api")
+    if not isinstance(sub, dict):
+        return out
+    if bool(sub.get("clear_auth", False)):
+        return out
+    headers = sub.get("headers") if isinstance(sub.get("headers"), dict) else {}
+    _, auth_value = _extract_sub_auth_header_pair(headers)
+    if str(auth_value or "").strip():
+        return out
+    current = get_auth_sync_raw_config()
+    current_sub = current.get("sub2api") if isinstance(current.get("sub2api"), dict) else {}
+    current_headers = current_sub.get("headers") if isinstance(current_sub.get("headers"), dict) else {}
+    patched_sub = dict(sub)
+    patched_sub["headers"] = dict(current_headers)
+    out["sub2api"] = patched_sub
+    return out
 
 
 def get_active_cpa_sync_source():
@@ -905,8 +928,24 @@ def save_auth_sync_cached_files(rows):
     clean_rows = []
     conn = get_conn()
     try:
-        old_rows = conn.execute("SELECT file_name, sync_enabled FROM auth_sync_cached_files").fetchall()
+        old_rows = conn.execute("SELECT file_name, sync_enabled, target_group_ids FROM auth_sync_cached_files").fetchall()
         enabled_map = {str(r["file_name"] or "").strip(): bool(to_int(r["sync_enabled"], 0)) for r in old_rows}
+        group_ids_map = {}
+        for r in old_rows:
+            name = str(r["file_name"] or "").strip()
+            if not name:
+                continue
+            try:
+                arr = json.loads(str(r["target_group_ids"] or "[]"))
+            except Exception:
+                arr = []
+            clean = []
+            if isinstance(arr, list):
+                for v in arr:
+                    iv = to_int(v, 0)
+                    if iv > 0 and iv not in clean:
+                        clean.append(iv)
+            group_ids_map[name] = clean
     finally:
         conn.close()
     for row in rows or []:
@@ -918,14 +957,24 @@ def save_auth_sync_cached_files(rows):
         payload = dict(row)
         payload["name"] = name
         payload["sync_enabled"] = bool(enabled_map.get(name, False))
+        payload["target_group_ids"] = group_ids_map.get(name, [])
         clean_rows.append(payload)
     conn = get_conn()
     try:
         conn.execute("DELETE FROM auth_sync_cached_files")
         if clean_rows:
             conn.executemany(
-                "INSERT INTO auth_sync_cached_files (file_name, fetched_at, entry_json, sync_enabled) VALUES (?, ?, ?, ?)",
-                [(r["name"], fetched_at, json.dumps(r, ensure_ascii=False), 1 if r.get("sync_enabled") else 0) for r in clean_rows],
+                "INSERT INTO auth_sync_cached_files (file_name, fetched_at, entry_json, sync_enabled, target_group_ids) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        r["name"],
+                        fetched_at,
+                        json.dumps(r, ensure_ascii=False),
+                        1 if r.get("sync_enabled") else 0,
+                        json.dumps(r.get("target_group_ids", []), ensure_ascii=False),
+                    )
+                    for r in clean_rows
+                ],
             )
         conn.commit()
     finally:
@@ -938,7 +987,7 @@ def get_auth_sync_cached_files():
     try:
         rows = conn.execute(
             """
-            SELECT file_name, fetched_at, entry_json, sync_enabled
+            SELECT file_name, fetched_at, entry_json, sync_enabled, target_group_ids
             FROM auth_sync_cached_files
             ORDER BY LOWER(file_name) ASC
             """
@@ -958,6 +1007,17 @@ def get_auth_sync_cached_files():
             item["name"] = str(row["file_name"] or "").strip()
             item["cached_fetched_at"] = fetched_at
             item["sync_enabled"] = bool(to_int(row["sync_enabled"], 0))
+            try:
+                gid_arr = json.loads(str(row["target_group_ids"] or "[]"))
+            except Exception:
+                gid_arr = []
+            clean_gids = []
+            if isinstance(gid_arr, list):
+                for v in gid_arr:
+                    iv = to_int(v, 0)
+                    if iv > 0 and iv not in clean_gids:
+                        clean_gids.append(iv)
+            item["target_group_ids"] = clean_gids
             out.append(item)
         return {"last_fetched_at": last_fetched_at, "rows": out}
     finally:
@@ -972,7 +1032,7 @@ def set_auth_sync_cached_files_enabled(file_names, enabled):
     conn = get_conn()
     try:
         rows = conn.execute(
-            f"SELECT file_name, entry_json FROM auth_sync_cached_files WHERE file_name IN ({placeholders})",
+            f"SELECT file_name, entry_json, target_group_ids FROM auth_sync_cached_files WHERE file_name IN ({placeholders})",
             names,
         ).fetchall()
         count = 0
@@ -986,6 +1046,17 @@ def set_auth_sync_cached_files_enabled(file_names, enabled):
                 item = {}
             item["name"] = file_name
             item["sync_enabled"] = bool(enabled)
+            try:
+                gid_arr = json.loads(str(row["target_group_ids"] or "[]"))
+            except Exception:
+                gid_arr = []
+            clean_gids = []
+            if isinstance(gid_arr, list):
+                for v in gid_arr:
+                    iv = to_int(v, 0)
+                    if iv > 0 and iv not in clean_gids:
+                        clean_gids.append(iv)
+            item["target_group_ids"] = clean_gids
             conn.execute(
                 "UPDATE auth_sync_cached_files SET entry_json=?, sync_enabled=? WHERE file_name=?",
                 (json.dumps(item, ensure_ascii=False), 1 if enabled else 0, file_name),
@@ -1015,7 +1086,7 @@ def get_auth_sync_cached_entry_json_map(file_names):
     try:
         rows = conn.execute(
             f"""
-            SELECT file_name, fetched_at, entry_json
+            SELECT file_name, fetched_at, entry_json, target_group_ids
             FROM auth_sync_cached_files
             WHERE file_name IN ({placeholders})
             ORDER BY LOWER(file_name) ASC
@@ -1032,12 +1103,118 @@ def get_auth_sync_cached_entry_json_map(file_names):
                 entry_json = json.loads(raw)
             except Exception:
                 entry_json = raw
+            if not isinstance(entry_json, dict):
+                entry_json = {}
+            try:
+                gid_arr = json.loads(str(row["target_group_ids"] or "[]"))
+            except Exception:
+                gid_arr = []
+            clean_gids = []
+            if isinstance(gid_arr, list):
+                for v in gid_arr:
+                    iv = to_int(v, 0)
+                    if iv > 0 and iv not in clean_gids:
+                        clean_gids.append(iv)
+            entry_json["target_group_ids"] = clean_gids
             out[file_name] = {
                 "file": file_name,
                 "fetched_at": str(row["fetched_at"] or "").strip() or None,
                 "entry_json": entry_json,
             }
         return out
+    finally:
+        conn.close()
+
+
+def _normalize_group_ids(value):
+    if not isinstance(value, list):
+        return []
+    out = []
+    for v in value:
+        iv = to_int(v, 0)
+        if iv > 0 and iv not in out:
+            out.append(iv)
+    return out
+
+
+def set_auth_sync_cached_files_groups(file_names, target_group_ids):
+    names = [str(x or "").strip() for x in (file_names or []) if str(x or "").strip()]
+    if not names:
+        return 0
+    gids = _normalize_group_ids(target_group_ids)
+    placeholders = ",".join(["?"] * len(names))
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT file_name, entry_json, sync_enabled FROM auth_sync_cached_files WHERE file_name IN ({placeholders})",
+            names,
+        ).fetchall()
+        count = 0
+        for row in rows:
+            file_name = str(row["file_name"] or "").strip()
+            try:
+                item = json.loads(row["entry_json"] or "{}")
+            except Exception:
+                item = {}
+            if not isinstance(item, dict):
+                item = {}
+            item["name"] = file_name
+            item["sync_enabled"] = bool(to_int(row["sync_enabled"], 0))
+            item["target_group_ids"] = list(gids)
+            conn.execute(
+                "UPDATE auth_sync_cached_files SET entry_json=?, target_group_ids=? WHERE file_name=?",
+                (json.dumps(item, ensure_ascii=False), json.dumps(gids, ensure_ascii=False), file_name),
+            )
+            count += 1
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def set_auth_sync_cached_files_groups_by_map(group_ids_by_file):
+    if not isinstance(group_ids_by_file, dict) or not group_ids_by_file:
+        return {"updated": 0, "files": []}
+    normalized = {}
+    for k, v in group_ids_by_file.items():
+        name = str(k or "").strip()
+        if not name:
+            continue
+        normalized[name] = _normalize_group_ids(v if isinstance(v, list) else [])
+    if not normalized:
+        return {"updated": 0, "files": []}
+    names = list(normalized.keys())
+    placeholders = ",".join(["?"] * len(names))
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT file_name, entry_json, sync_enabled FROM auth_sync_cached_files WHERE file_name IN ({placeholders})",
+            names,
+        ).fetchall()
+        count = 0
+        updated_files = []
+        for row in rows:
+            file_name = str(row["file_name"] or "").strip()
+            if not file_name:
+                continue
+            gids = normalized.get(file_name, [])
+            try:
+                item = json.loads(row["entry_json"] or "{}")
+            except Exception:
+                item = {}
+            if not isinstance(item, dict):
+                item = {}
+            item["name"] = file_name
+            item["sync_enabled"] = bool(to_int(row["sync_enabled"], 0))
+            item["target_group_ids"] = list(gids)
+            conn.execute(
+                "UPDATE auth_sync_cached_files SET entry_json=?, target_group_ids=? WHERE file_name=?",
+                (json.dumps(item, ensure_ascii=False), json.dumps(gids, ensure_ascii=False), file_name),
+            )
+            count += 1
+            updated_files.append(file_name)
+        conn.commit()
+        return {"updated": count, "files": updated_files}
     finally:
         conn.close()
 
@@ -1068,6 +1245,7 @@ def init_auth_sync_manager():
         cpa_source_getter=get_active_cpa_sync_source,
         file_audit_hook=persist_auth_sync_file_record,
         cached_enabled_name_getter=get_auth_sync_cached_enabled_name_set,
+        cached_entry_getter=get_auth_sync_cached_entry_json_map,
         record_db_path=str(DB_PATH),
     )
     auth_sync_manager.start()
@@ -2135,6 +2313,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "last_fetched_at": cached.get("last_fetched_at"), "data": merged})
             return
 
+        if u.path == "/api/auth-sync/sub2-groups":
+            manager = get_auth_sync_manager()
+            platform = (q.get("platform") or [""])[0].strip()
+            try:
+                groups = manager.list_sub2_groups(platform=platform)
+                self._json(200, {"ok": True, "data": groups, "platform": platform})
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
         self._json(404, {"ok": False, "message": "not found"})
 
     def handle_api_post(self, u):
@@ -2204,7 +2392,32 @@ class Handler(BaseHTTPRequestHandler):
             manager = get_auth_sync_manager()
             try:
                 override = payload.get("config") if isinstance(payload, dict) else {}
-                summary = manager.sync_selected_files(payload.get("files") or [], trigger="manual_selected", raw_override=override)
+                override = apply_auth_sync_override_preserving_auth(override)
+                files = payload.get("files") or []
+                mapping_raw = payload.get("group_ids_by_file") if isinstance(payload, dict) else {}
+                group_ids_by_file = {}
+                if isinstance(mapping_raw, dict):
+                    for k, v in mapping_raw.items():
+                        name = str(k or "").strip()
+                        if not name:
+                            continue
+                        group_ids_by_file[name] = _normalize_group_ids(v if isinstance(v, list) else [])
+                if not group_ids_by_file:
+                    cached_map = get_auth_sync_cached_entry_json_map(files)
+                    for name in files:
+                        n = str(name or "").strip()
+                        if not n:
+                            continue
+                        entry = cached_map.get(n, {}).get("entry_json") if isinstance(cached_map.get(n), dict) else {}
+                        gids = _normalize_group_ids(entry.get("target_group_ids") if isinstance(entry, dict) else [])
+                        if gids:
+                            group_ids_by_file[n] = gids
+                summary = manager.sync_selected_files(
+                    files,
+                    trigger="manual_selected",
+                    raw_override=override,
+                    group_ids_by_file=group_ids_by_file,
+                )
                 self._json(200, {"ok": True, "message": "selected files synced", "data": summary})
             except Exception as e:
                 self._json(400, {"ok": False, "message": str(e)})
@@ -2229,11 +2442,55 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"ok": False, "message": str(e)})
             return
 
+        if u.path == "/api/auth-sync/files-groups":
+            payload = self._read_json()
+            try:
+                files = payload.get("files") if isinstance(payload, dict) else []
+                target_group_ids = payload.get("target_group_ids") if isinstance(payload, dict) else []
+                updated = set_auth_sync_cached_files_groups(files, target_group_ids)
+                self._json(
+                    200,
+                    {
+                        "ok": True,
+                        "message": "target groups updated",
+                        "data": {"updated": updated, "target_group_ids": _normalize_group_ids(target_group_ids)},
+                    },
+                )
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
+        if u.path == "/api/auth-sync/files-groups-sync-from-sub2":
+            payload = self._read_json()
+            manager = get_auth_sync_manager()
+            try:
+                files = payload.get("files") if isinstance(payload, dict) else []
+                override = payload.get("config") if isinstance(payload, dict) else {}
+                override = apply_auth_sync_override_preserving_auth(override)
+                summary = manager.pull_sub2_groups_for_files(files, raw_override=override)
+                updated_result = set_auth_sync_cached_files_groups_by_map(summary.get("group_ids_by_file") or {})
+                self._json(
+                    200,
+                    {
+                        "ok": True,
+                        "message": "target groups synced from sub2",
+                        "data": {
+                            "sync_summary": summary,
+                            "updated": int(updated_result.get("updated", 0) or 0),
+                            "updated_files": updated_result.get("files") or [],
+                        },
+                    },
+                )
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
         if u.path == "/api/auth-sync/sub2-validate":
             payload = self._read_json()
             manager = get_auth_sync_manager()
             try:
                 override = payload.get("config") if isinstance(payload, dict) else {}
+                override = apply_auth_sync_override_preserving_auth(override)
                 data = manager.validate_sub2_auth(override)
                 self._json(200, {"ok": True, "message": data.get("message", ""), "data": data})
             except Exception as e:
