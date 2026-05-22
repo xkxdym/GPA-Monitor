@@ -65,11 +65,75 @@
       padding: 16px;
       margin-bottom: 14px;
     }
-    h1 { margin: 2px 0 10px; font-size: 22px; }
+    h1 { margin: 0; font-size: 22px; }
     a { color: var(--accent); }
     a:hover { opacity: 0.9; }
-    .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
     .small { color: var(--muted); font-size: 12px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .brand-pill {
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      padding: 10px 18px;
+      font-weight: 800;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--text);
+      background: linear-gradient(180deg, var(--panel) 0%, var(--pill-bg) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .chip-group {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--pill-bg);
+      padding: 4px;
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .chip-btn {
+      height: 30px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 12px;
+      font-size: 12px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chip-btn.active {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: var(--card-shadow);
+    }
+    .chip-link {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 14px;
+      background: var(--panel);
+      color: var(--text);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      font-weight: 700;
+      font-size: 12px;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -132,7 +196,6 @@
       color: var(--text);
     }
     .theme-switch {
-      margin-left: 8px;
       height: 30px;
       border: 1px solid var(--line-strong);
       border-radius: 8px;
@@ -147,20 +210,31 @@
     th { background: var(--pill-bg); font-size: 12px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .active { color: #0f766e; font-weight: 700; }
-    @media (max-width: 900px) { .field.sm, .field.md { grid-column: span 12; } }
+    @media (max-width: 900px) {
+      .field.sm, .field.md { grid-column: span 12; }
+      .top-actions { justify-content: flex-start; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>CPA监控 - 配置</h1>
-      <div class="sub" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-        <a href="/">返回监控页</a>
-        <select id="themeMode" class="theme-switch" title="主题模式">
-          <option value="auto">跟随系统</option>
-          <option value="light">浅色</option>
-          <option value="dark">夜间</option>
-        </select>
+      <div class="topbar">
+        <div class="brand-pill">CPA配置中心</div>
+        <div class="top-actions">
+          <div class="chip-group" title="主题模式">
+            <button id="themeLightBtn" class="chip-btn" type="button">Light</button>
+            <button id="themeDarkBtn" class="chip-btn" type="button">Dark</button>
+            <button id="themeAutoBtn" class="chip-btn" type="button">Auto</button>
+          </div>
+          <a class="chip-link" href="/">监控页面</a>
+          <a class="chip-link" href="/auth-sync.html">授权同步</a>
+          <select id="themeMode" class="theme-switch" title="主题模式" style="display:none;">
+            <option value="auto">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">夜间</option>
+          </select>
+        </div>
       </div>
       <span class="pill">当前配置：<span id="activeTag">-</span></span>
       <span class="pill">配置总数：<span id="profileCount">0</span></span>
@@ -265,6 +339,43 @@
         <div class="field sm"><label>默认明细条数</label><input id="recordLimit" type="number" min="10" max="5000" value="300" /></div>
         <div class="field sm"><label>保留天数（自动清理）</label><input id="retentionDays" type="number" min="1" max="3650" value="30" /></div>
       </div>
+      <div class="grid" style="margin-top:12px;">
+        <div class="field section-title" style="grid-column:span 12; color:var(--muted); font-size:12px;">授权同步配置</div>
+        <div class="field sm"><label>同步间隔（秒）</label><input id="authIntervalSeconds" type="number" min="1" /></div>
+        <div class="field sm"><label>同步策略</label>
+          <select id="authSyncType">
+            <option value="all">全部同步（all）</option>
+            <option value="expiry_policy">按最后刷新间隔同步（expiry_policy）</option>
+            <option value="expired_only">仅同步不超过刷新间隔（expired_only）</option>
+            <option value="no_expiry_only">仅同步无最后刷新时间（no_expiry_only）</option>
+          </select>
+        </div>
+        <div class="field sm"><label>刷新间隔天数</label><input id="authExpirySyncDays" type="number" /></div>
+        <div class="field sm"><label>每轮最大文件数</label><input id="authMaxFilesPerCycle" type="number" min="0" /></div>
+        <div class="field sm"><label>sub2api 超时（秒）</label><input id="authSubTimeoutSeconds" type="number" min="1" /></div>
+        <div class="field md"><label>sub2 基础地址</label><input id="authSubBaseUrl" placeholder="http://127.0.0.1:8080" /></div>
+        <div class="field sm"><label>授权方式</label>
+          <select id="authSubAuthMode">
+            <option value="x_api_key">x-api-key（默认）</option>
+            <option value="bearer">Authorization Bearer</option>
+            <option value="authorization_raw">Authorization 原样</option>
+            <option value="raw">原样透传</option>
+          </select>
+        </div>
+        <div class="field md">
+          <label>授权 Key</label>
+          <input id="authSubAuthKey" type="password" autocomplete="new-password" />
+          <div class="hint" id="authSubAuthHint" style="margin-top:4px;">当前未配置授权Key。</div>
+        </div>
+        <div class="field">
+          <div class="actions" style="margin-top:0;">
+            <label><input id="authSubVerifySsl" type="checkbox" /> 校验 sub2api SSL 证书</label>
+            <label><input id="authSubSkipDefaultGroupBind" type="checkbox" /> 跳过默认分组绑定</label>
+            <label><input id="authSubClearAuth" type="checkbox" /> 保存时清空授权Key</label>
+            <button id="validateAuthSyncBtn" class="btn-ghost" type="button">验证 sub2 授权</button>
+          </div>
+        </div>
+      </div>
       <div class="actions">
         <button id="saveGlobalBtn" class="btn-primary">保存全局配置</button>
         <button id="pruneBtn" class="btn-ghost">立即清理过期数据</button>
@@ -290,6 +401,14 @@
       document.documentElement.setAttribute("data-theme", effective);
       const sel = $("themeMode");
       if (sel && sel.value !== mode) sel.value = mode;
+      ["themeLightBtn", "themeDarkBtn", "themeAutoBtn"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        el.classList.remove("active");
+      });
+      if (mode === "light") $("themeLightBtn") && $("themeLightBtn").classList.add("active");
+      else if (mode === "dark") $("themeDarkBtn") && $("themeDarkBtn").classList.add("active");
+      else $("themeAutoBtn") && $("themeAutoBtn").classList.add("active");
       try {
         localStorage.setItem(THEME_KEY, mode);
       } catch (_) {}
@@ -299,6 +418,97 @@
       const el = $("status");
       el.textContent = msg;
       el.style.color = level === "error" ? "var(--bad)" : level === "warn" ? "var(--warn)" : "var(--muted)";
+    }
+
+    function subBaseFromImportUrl(importUrl) {
+      const raw = String(importUrl || "").trim();
+      if (!raw) return "";
+      const suffix = "/api/v1/admin/accounts/data";
+      if (raw.endsWith(suffix)) return raw.slice(0, raw.length - suffix.length);
+      return raw.replace(/\/+$/, "");
+    }
+
+    function buildSubImportUrl(baseUrl) {
+      const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+      if (!base) return "";
+      return `${base}/api/v1/admin/accounts/data`;
+    }
+
+    function authFormFromHeaders(headers) {
+      const h = (headers && typeof headers === "object") ? headers : {};
+      const xApiKey = String(h["x-api-key"] || h["X-API-KEY"] || h["X-Api-Key"] || "").trim();
+      if (xApiKey) return { mode: "x_api_key", key: xApiKey };
+      const raw = String(h.Authorization || h.authorization || "").trim();
+      if (!raw) return { mode: "x_api_key", key: "" };
+      const m = raw.match(/^Bearer\s+(.+)$/i);
+      if (m) return { mode: "bearer", key: m[1].trim() };
+      return { mode: "authorization_raw", key: raw };
+    }
+
+    function authFormFromConfig(sub) {
+      const s = (sub && typeof sub === "object") ? sub : {};
+      const mode = String(s.auth_mode || "").trim();
+      const hasKey = !!s.auth_key_set;
+      if (mode) return { mode, hasKey };
+      const header = String(s.auth_header || "").trim().toLowerCase();
+      if (header === "x-api-key") return { mode: "x_api_key", hasKey };
+      if (header === "authorization") return { mode: "authorization_raw", hasKey };
+      const fallback = authFormFromHeaders(s.headers || {});
+      return { mode: fallback.mode || "x_api_key", hasKey: hasKey || !!String(fallback.key || "").trim() };
+    }
+
+    function headersFromAuthForm(authKey, mode) {
+      const key = String(authKey || "").trim();
+      if (!key) return {};
+      const m = String(mode || "x_api_key");
+      if (m === "x_api_key") return { "x-api-key": key };
+      if (m === "authorization_raw" || m === "raw") return { Authorization: key };
+      return { Authorization: /^Bearer\s+/i.test(key) ? key : `Bearer ${key}` };
+    }
+
+    function fillAuthSyncForm(cfg) {
+      const sub = cfg.sub2api || {};
+      const sync = cfg.sync || {};
+      $("authIntervalSeconds").value = cfg.interval_seconds ?? 300;
+      $("authSyncType").value = sync.sync_type || "expiry_policy";
+      $("authExpirySyncDays").value = sync.expiry_sync_days ?? 0;
+      $("authMaxFilesPerCycle").value = sync.max_files_per_cycle ?? 0;
+      $("authSubTimeoutSeconds").value = sub.timeout_seconds ?? 30;
+      $("authSubBaseUrl").value = subBaseFromImportUrl(sub.import_url || "");
+      const authForm = authFormFromConfig(sub);
+      $("authSubAuthMode").value = authForm.mode;
+      $("authSubAuthKey").value = "";
+      $("authSubAuthKey").placeholder = authForm.hasKey ? "已配置，留空则保持不变" : "请输入新的授权Key";
+      $("authSubAuthHint").textContent = authForm.hasKey
+        ? "当前已保存授权Key（出于安全不回显明文）。如需更新请输入新值。"
+        : "当前未配置授权Key。";
+      $("authSubClearAuth").checked = false;
+      $("authSubAuthKey").disabled = false;
+      $("authSubVerifySsl").checked = sub.verify_ssl !== false;
+      $("authSubSkipDefaultGroupBind").checked = sub.skip_default_group_bind !== false;
+    }
+
+    function buildAuthSyncConfigFromForm() {
+      const clearAuth = !!$("authSubClearAuth").checked;
+      const authKey = String($("authSubAuthKey").value || "").trim();
+      const headers = clearAuth ? {} : headersFromAuthForm(authKey, $("authSubAuthMode").value);
+      return {
+        interval_seconds: Math.max(1, num($("authIntervalSeconds").value || 300)),
+        sub2api: {
+          import_url: buildSubImportUrl($("authSubBaseUrl").value),
+          headers,
+          preserve_auth_if_empty: !clearAuth && !authKey,
+          clear_auth: clearAuth,
+          timeout_seconds: Math.max(1, num($("authSubTimeoutSeconds").value || 30)),
+          verify_ssl: !!$("authSubVerifySsl").checked,
+          skip_default_group_bind: !!$("authSubSkipDefaultGroupBind").checked,
+        },
+        sync: {
+          sync_type: $("authSyncType").value,
+          expiry_sync_days: parseInt($("authExpirySyncDays").value || "0", 10) || 0,
+          max_files_per_cycle: Math.max(0, num($("authMaxFilesPerCycle").value || 0)),
+        },
+      };
     }
 
     async function api(path, opts = {}) {
@@ -450,7 +660,7 @@
     }
 
     async function loadAll() {
-      const [cfgData, pData] = await Promise.all([api("/api/config"), api("/api/profiles")]);
+      const [cfgData, pData, authSyncData] = await Promise.all([api("/api/config"), api("/api/profiles"), api("/api/auth-sync/config")]);
       const cfg = cfgData.config || {};
       state.profiles = pData.profiles || [];
       state.activeProfileId = Number(pData.active_profile_id || cfg.active_profile_id || 0);
@@ -461,6 +671,7 @@
       $("hours").value = cfg.lookback_hours || 24;
       $("recordLimit").value = cfg.record_limit || 300;
       $("retentionDays").value = cfg.retention_days || 30;
+      fillAuthSyncForm(authSyncData.data || {});
       renderProfileOptions();
       fillProfileForm(activeProfile());
       renderProfilesTable();
@@ -479,7 +690,22 @@
           retention_days: num($("retentionDays").value || 30)
         })
       });
-      setStatus("全局配置已保存。");
+      await api("/api/auth-sync/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildAuthSyncConfigFromForm())
+      });
+      setStatus("全局配置和授权同步配置已保存。");
+    }
+
+    async function validateAuthSync() {
+      const d = await api("/api/auth-sync/sub2-validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: buildAuthSyncConfigFromForm() })
+      });
+      const info = d.data || {};
+      setStatus(info.message || (info.ok ? "sub2 授权验证通过。" : "sub2 授权验证失败。"), info.ok ? "info" : "error");
     }
 
     async function saveProfile() {
@@ -623,9 +849,35 @@
     $("saveProfileBtn").addEventListener("click", () => saveProfile().catch((e) => setStatus(`保存配置档失败: ${e.message}`, "error")));
     $("deleteProfileBtn").addEventListener("click", () => deleteProfile().catch((e) => setStatus(`删除配置档失败: ${e.message}`, "error")));
     $("saveGlobalBtn").addEventListener("click", () => saveGlobal().catch((e) => setStatus(`保存全局配置失败: ${e.message}`, "error")));
+    $("validateAuthSyncBtn").addEventListener("click", () => validateAuthSync().catch((e) => setStatus(`验证 sub2 授权失败: ${e.message}`, "error")));
+    $("authSubClearAuth").addEventListener("change", () => {
+      const clear = !!$("authSubClearAuth").checked;
+      $("authSubAuthKey").disabled = clear;
+      if (clear) {
+        $("authSubAuthKey").value = "";
+        $("authSubAuthHint").textContent = "已选择保存时清空授权Key。";
+      } else {
+        const hasKey = $("authSubAuthKey").placeholder.indexOf("已配置") >= 0;
+        $("authSubAuthHint").textContent = hasKey
+          ? "当前已保存授权Key（出于安全不回显明文）。如需更新请输入新值。"
+          : "当前未配置授权Key。";
+      }
+    });
     $("pruneBtn").addEventListener("click", () => prune().catch((e) => setStatus(`清理失败: ${e.message}`, "error")));
     $("clearBtn").addEventListener("click", () => clearAll().catch((e) => setStatus(`清空失败: ${e.message}`, "error")));
     $("themeMode").addEventListener("change", () => applyTheme($("themeMode").value));
+    $("themeLightBtn").addEventListener("click", () => {
+      $("themeMode").value = "light";
+      applyTheme("light");
+    });
+    $("themeDarkBtn").addEventListener("click", () => {
+      $("themeMode").value = "dark";
+      applyTheme("dark");
+    });
+    $("themeAutoBtn").addEventListener("click", () => {
+      $("themeMode").value = "auto";
+      applyTheme("auto");
+    });
     $("profilesTbody").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-act]");
       if (!btn) return;

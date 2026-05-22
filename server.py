@@ -1,5 +1,6 @@
 import json
 import hashlib
+import logging
 import os
 import sqlite3
 import sys
@@ -9,6 +10,9 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib import error, parse, request
+from sub_sync import SyncManager as AuthSyncManager
+from sub_sync import build_default_raw_config as build_auth_sync_default_raw_config
+from sub_sync import deep_merge_dict as deep_merge_auth_sync_raw
 
 
 ROOT = Path(__file__).resolve().parent
@@ -28,6 +32,7 @@ scheduler_state = {
     "last_message": "",
     "next_run_at": None,
 }
+auth_sync_manager = None
 
 
 def now_iso() -> str:
@@ -160,6 +165,69 @@ def ensure_column(conn, table_name, col_name, col_def):
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}")
 
 
+def migrate_auth_sync_settings_drop_record_file(conn):
+    if not table_has_column(conn, "auth_sync_settings", "record_file"):
+        return
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS auth_sync_settings_v2 (
+          id INTEGER PRIMARY KEY CHECK (id=1),
+          interval_seconds INTEGER NOT NULL DEFAULT 300,
+          sync_type TEXT NOT NULL DEFAULT 'expiry_policy',
+          expiry_sync_days INTEGER NOT NULL DEFAULT 0,
+          sync_without_expiry INTEGER NOT NULL DEFAULT 1,
+          max_files_per_cycle INTEGER NOT NULL DEFAULT 0,
+          sub_import_url TEXT NOT NULL DEFAULT '',
+          sub_auth_header TEXT NOT NULL DEFAULT 'x-api-key',
+          sub_authorization TEXT NOT NULL DEFAULT '',
+          sub_timeout_seconds INTEGER NOT NULL DEFAULT 30,
+          sub_verify_ssl INTEGER NOT NULL DEFAULT 1,
+          sub_skip_default_group_bind INTEGER NOT NULL DEFAULT 1,
+          delete_after_success INTEGER NOT NULL DEFAULT 1,
+          dry_run INTEGER NOT NULL DEFAULT 0,
+          default_concurrency INTEGER NOT NULL DEFAULT 1,
+          default_priority INTEGER NOT NULL DEFAULT 0,
+          name_template TEXT NOT NULL DEFAULT '{filename}',
+          max_record_items INTEGER NOT NULL DEFAULT 2000,
+          save_transformed_dir TEXT NOT NULL DEFAULT '',
+          f_only_json INTEGER NOT NULL DEFAULT 1,
+          f_allow_runtime_only INTEGER NOT NULL DEFAULT 0,
+          f_allow_non_file_source INTEGER NOT NULL DEFAULT 0,
+          f_require_enabled INTEGER NOT NULL DEFAULT 0,
+          f_include_providers TEXT NOT NULL DEFAULT '',
+          f_exclude_providers TEXT NOT NULL DEFAULT '',
+          f_include_statuses TEXT NOT NULL DEFAULT '',
+          f_exclude_statuses TEXT NOT NULL DEFAULT '',
+          f_include_name_patterns TEXT NOT NULL DEFAULT '',
+          f_exclude_name_patterns TEXT NOT NULL DEFAULT '',
+          f_min_size_bytes INTEGER,
+          f_max_size_bytes INTEGER
+        );
+        INSERT OR REPLACE INTO auth_sync_settings_v2 (
+          id, interval_seconds, sync_type, expiry_sync_days, sync_without_expiry, max_files_per_cycle,
+          sub_import_url, sub_auth_header, sub_authorization, sub_timeout_seconds, sub_verify_ssl, sub_skip_default_group_bind,
+          delete_after_success, dry_run, default_concurrency, default_priority, name_template,
+          max_record_items, save_transformed_dir,
+          f_only_json, f_allow_runtime_only, f_allow_non_file_source, f_require_enabled,
+          f_include_providers, f_exclude_providers, f_include_statuses, f_exclude_statuses,
+          f_include_name_patterns, f_exclude_name_patterns, f_min_size_bytes, f_max_size_bytes
+        )
+        SELECT
+          id, interval_seconds, sync_type, expiry_sync_days, sync_without_expiry, max_files_per_cycle,
+          sub_import_url, sub_auth_header, sub_authorization, sub_timeout_seconds, sub_verify_ssl, sub_skip_default_group_bind,
+          delete_after_success, dry_run, default_concurrency, default_priority, name_template,
+          max_record_items, save_transformed_dir,
+          f_only_json, f_allow_runtime_only, f_allow_non_file_source, f_require_enabled,
+          f_include_providers, f_exclude_providers, f_include_statuses, f_exclude_statuses,
+          f_include_name_patterns, f_exclude_name_patterns, f_min_size_bytes, f_max_size_bytes
+        FROM auth_sync_settings;
+        DROP TABLE auth_sync_settings;
+        ALTER TABLE auth_sync_settings_v2 RENAME TO auth_sync_settings;
+        INSERT OR IGNORE INTO auth_sync_settings (id) VALUES (1);
+        """
+    )
+
+
 def init_db():
     conn = get_conn()
     try:
@@ -174,9 +242,45 @@ def init_db():
               auto_refresh_enabled INTEGER NOT NULL DEFAULT 0,
               lookback_hours INTEGER NOT NULL DEFAULT 24,
               record_limit INTEGER NOT NULL DEFAULT 300,
-              retention_days INTEGER NOT NULL DEFAULT 30
+              retention_days INTEGER NOT NULL DEFAULT 30,
+              auth_sync_config_json TEXT NOT NULL DEFAULT '{}'
             );
             INSERT OR IGNORE INTO app_config (id) VALUES (1);
+
+            CREATE TABLE IF NOT EXISTS auth_sync_settings (
+              id INTEGER PRIMARY KEY CHECK (id=1),
+              interval_seconds INTEGER NOT NULL DEFAULT 300,
+              sync_type TEXT NOT NULL DEFAULT 'expiry_policy',
+              expiry_sync_days INTEGER NOT NULL DEFAULT 0,
+              sync_without_expiry INTEGER NOT NULL DEFAULT 1,
+              max_files_per_cycle INTEGER NOT NULL DEFAULT 0,
+              sub_import_url TEXT NOT NULL DEFAULT '',
+              sub_auth_header TEXT NOT NULL DEFAULT 'x-api-key',
+              sub_authorization TEXT NOT NULL DEFAULT '',
+              sub_timeout_seconds INTEGER NOT NULL DEFAULT 30,
+              sub_verify_ssl INTEGER NOT NULL DEFAULT 1,
+              sub_skip_default_group_bind INTEGER NOT NULL DEFAULT 1,
+              delete_after_success INTEGER NOT NULL DEFAULT 1,
+              dry_run INTEGER NOT NULL DEFAULT 0,
+              default_concurrency INTEGER NOT NULL DEFAULT 1,
+              default_priority INTEGER NOT NULL DEFAULT 0,
+              name_template TEXT NOT NULL DEFAULT '{filename}',
+              max_record_items INTEGER NOT NULL DEFAULT 2000,
+              save_transformed_dir TEXT NOT NULL DEFAULT '',
+              f_only_json INTEGER NOT NULL DEFAULT 1,
+              f_allow_runtime_only INTEGER NOT NULL DEFAULT 0,
+              f_allow_non_file_source INTEGER NOT NULL DEFAULT 0,
+              f_require_enabled INTEGER NOT NULL DEFAULT 0,
+              f_include_providers TEXT NOT NULL DEFAULT '',
+              f_exclude_providers TEXT NOT NULL DEFAULT '',
+              f_include_statuses TEXT NOT NULL DEFAULT '',
+              f_exclude_statuses TEXT NOT NULL DEFAULT '',
+              f_include_name_patterns TEXT NOT NULL DEFAULT '',
+              f_exclude_name_patterns TEXT NOT NULL DEFAULT '',
+              f_min_size_bytes INTEGER,
+              f_max_size_bytes INTEGER
+            );
+            INSERT OR IGNORE INTO auth_sync_settings (id) VALUES (1);
 
             CREATE TABLE IF NOT EXISTS profiles (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -243,6 +347,28 @@ def init_db():
               message TEXT NOT NULL,
               trace_json TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS auth_sync_file_records (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ts TEXT NOT NULL,
+              file_name TEXT NOT NULL,
+              trigger TEXT NOT NULL DEFAULT '',
+              status TEXT NOT NULL DEFAULT '',
+              synced_to_sub2 INTEGER NOT NULL DEFAULT 0,
+              sync_time TEXT,
+              message TEXT NOT NULL DEFAULT '',
+              auth_json TEXT NOT NULL DEFAULT '',
+              account_json TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_auth_sync_file_records_name_ts ON auth_sync_file_records(file_name, ts DESC);
+
+            CREATE TABLE IF NOT EXISTS auth_sync_cached_files (
+              file_name TEXT PRIMARY KEY,
+              fetched_at TEXT NOT NULL,
+              entry_json TEXT NOT NULL DEFAULT '{}',
+              sync_enabled INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_auth_sync_cached_files_fetched_at ON auth_sync_cached_files(fetched_at DESC);
             """
         )
 
@@ -253,7 +379,11 @@ def init_db():
         ensure_column(conn, "app_config", "auto_refresh_enabled", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "app_config", "lookback_hours", "INTEGER NOT NULL DEFAULT 24")
         ensure_column(conn, "app_config", "record_limit", "INTEGER NOT NULL DEFAULT 300")
+        ensure_column(conn, "app_config", "auth_sync_config_json", "TEXT NOT NULL DEFAULT '{}'")
         ensure_column(conn, "profiles", "key_user_map_json", "TEXT NOT NULL DEFAULT '{}'")
+        ensure_column(conn, "auth_sync_settings", "sub_auth_header", "TEXT NOT NULL DEFAULT 'x-api-key'")
+        ensure_column(conn, "auth_sync_cached_files", "sync_enabled", "INTEGER NOT NULL DEFAULT 0")
+        migrate_auth_sync_settings_drop_record_file(conn)
         conn.execute(
             """
             UPDATE app_config SET
@@ -261,7 +391,8 @@ def init_db():
               auto_refresh_enabled = COALESCE(auto_refresh_enabled, 0),
               lookback_hours = COALESCE(lookback_hours, 24),
               record_limit = COALESCE(record_limit, 300),
-              retention_days = COALESCE(retention_days, 30)
+              retention_days = COALESCE(retention_days, 30),
+              auth_sync_config_json = COALESCE(auth_sync_config_json, '{}')
             WHERE id=1
             """
         )
@@ -278,6 +409,75 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_profile_model_auth_key ON usage_records(profile_id, model, auth_account, external_key)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_snapshots_profile_time ON pull_snapshots(profile_id, fetched_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_profile_time ON pull_logs(profile_id, fetched_at)")
+
+        # Migrate legacy auth_sync_config_json -> auth_sync_settings (best-effort).
+        try:
+            legacy_raw = conn.execute("SELECT auth_sync_config_json FROM app_config WHERE id=1").fetchone()["auth_sync_config_json"]
+            legacy_obj = json.loads(legacy_raw) if legacy_raw else {}
+            if isinstance(legacy_obj, dict) and legacy_obj:
+                current = conn.execute("SELECT * FROM auth_sync_settings WHERE id=1").fetchone()
+                current = dict(current) if current else {}
+                sync_legacy = legacy_obj.get("sync", {}) if isinstance(legacy_obj.get("sync"), dict) else {}
+                sub_legacy = legacy_obj.get("sub2api", {}) if isinstance(legacy_obj.get("sub2api"), dict) else {}
+                sub_legacy_headers = sub_legacy.get("headers", {}) if isinstance(sub_legacy.get("headers"), dict) else {}
+                legacy_auth_header, legacy_auth_value = _extract_sub_auth_header_pair(sub_legacy_headers)
+                f_legacy = sync_legacy.get("auth_file_filter", {}) if isinstance(sync_legacy.get("auth_file_filter"), dict) else {}
+                upd = {
+                    "interval_seconds": to_int(legacy_obj.get("interval_seconds"), current.get("interval_seconds", 300)),
+                    "sync_type": str(sync_legacy.get("sync_type", current.get("sync_type", "expiry_policy"))),
+                    "expiry_sync_days": to_int(sync_legacy.get("expiry_sync_days"), current.get("expiry_sync_days", 0)),
+                    "sync_without_expiry": 1 if bool(sync_legacy.get("sync_without_expiry", current.get("sync_without_expiry", 1))) else 0,
+                    "max_files_per_cycle": to_int(sync_legacy.get("max_files_per_cycle"), current.get("max_files_per_cycle", 0)),
+                    "sub_import_url": str(sub_legacy.get("import_url", current.get("sub_import_url", "")) or ""),
+                    "sub_auth_header": str(legacy_auth_header or current.get("sub_auth_header", "x-api-key") or "x-api-key"),
+                    "sub_authorization": str(legacy_auth_value or current.get("sub_authorization", "") or ""),
+                    "sub_timeout_seconds": to_int(sub_legacy.get("timeout_seconds"), current.get("sub_timeout_seconds", 30)),
+                    "sub_verify_ssl": 1 if bool(sub_legacy.get("verify_ssl", current.get("sub_verify_ssl", 1))) else 0,
+                    "sub_skip_default_group_bind": 1 if bool(sub_legacy.get("skip_default_group_bind", current.get("sub_skip_default_group_bind", 1))) else 0,
+                    "delete_after_success": 1 if bool(sync_legacy.get("delete_after_success", current.get("delete_after_success", 1))) else 0,
+                    "dry_run": 1 if bool(sync_legacy.get("dry_run", current.get("dry_run", 0))) else 0,
+                    "default_concurrency": to_int(sync_legacy.get("default_concurrency"), current.get("default_concurrency", 1)),
+                    "default_priority": to_int(sync_legacy.get("default_priority"), current.get("default_priority", 0)),
+                    "name_template": str(sync_legacy.get("name_template", current.get("name_template", "{filename}")) or "{filename}"),
+                    "max_record_items": to_int(sync_legacy.get("max_record_items"), current.get("max_record_items", 2000)),
+                    "save_transformed_dir": str(sync_legacy.get("save_transformed_dir", current.get("save_transformed_dir", "")) or ""),
+                    "f_only_json": 1 if bool(f_legacy.get("only_json", current.get("f_only_json", 1))) else 0,
+                    "f_allow_runtime_only": 1 if bool(f_legacy.get("allow_runtime_only", current.get("f_allow_runtime_only", 0))) else 0,
+                    "f_allow_non_file_source": 1 if bool(f_legacy.get("allow_non_file_source", current.get("f_allow_non_file_source", 0))) else 0,
+                    "f_require_enabled": 1 if bool(f_legacy.get("require_enabled", current.get("f_require_enabled", 0))) else 0,
+                    "f_include_providers": ",".join([str(x).strip() for x in f_legacy.get("include_providers", []) if str(x).strip()]),
+                    "f_exclude_providers": ",".join([str(x).strip() for x in f_legacy.get("exclude_providers", []) if str(x).strip()]),
+                    "f_include_statuses": ",".join([str(x).strip() for x in f_legacy.get("include_statuses", []) if str(x).strip()]),
+                    "f_exclude_statuses": ",".join([str(x).strip() for x in f_legacy.get("exclude_statuses", []) if str(x).strip()]),
+                    "f_include_name_patterns": ",".join([str(x).strip() for x in f_legacy.get("include_name_patterns", []) if str(x).strip()]),
+                    "f_exclude_name_patterns": ",".join([str(x).strip() for x in f_legacy.get("exclude_name_patterns", []) if str(x).strip()]),
+                    "f_min_size_bytes": f_legacy.get("min_size_bytes"),
+                    "f_max_size_bytes": f_legacy.get("max_size_bytes"),
+                }
+                conn.execute(
+                    """
+                    UPDATE auth_sync_settings SET
+                      interval_seconds=?, sync_type=?, expiry_sync_days=?, sync_without_expiry=?, max_files_per_cycle=?,
+                      sub_import_url=?, sub_auth_header=?, sub_authorization=?, sub_timeout_seconds=?, sub_verify_ssl=?, sub_skip_default_group_bind=?,
+                      delete_after_success=?, dry_run=?, default_concurrency=?, default_priority=?, name_template=?,
+                      max_record_items=?, save_transformed_dir=?,
+                      f_only_json=?, f_allow_runtime_only=?, f_allow_non_file_source=?, f_require_enabled=?,
+                      f_include_providers=?, f_exclude_providers=?, f_include_statuses=?, f_exclude_statuses=?,
+                      f_include_name_patterns=?, f_exclude_name_patterns=?, f_min_size_bytes=?, f_max_size_bytes=?
+                    WHERE id=1
+                    """,
+                    (
+                        upd["interval_seconds"], upd["sync_type"], upd["expiry_sync_days"], upd["sync_without_expiry"], upd["max_files_per_cycle"],
+                        upd["sub_import_url"], upd["sub_auth_header"], upd["sub_authorization"], upd["sub_timeout_seconds"], upd["sub_verify_ssl"], upd["sub_skip_default_group_bind"],
+                        upd["delete_after_success"], upd["dry_run"], upd["default_concurrency"], upd["default_priority"], upd["name_template"],
+                        upd["max_record_items"], upd["save_transformed_dir"],
+                        upd["f_only_json"], upd["f_allow_runtime_only"], upd["f_allow_non_file_source"], upd["f_require_enabled"],
+                        upd["f_include_providers"], upd["f_exclude_providers"], upd["f_include_statuses"], upd["f_exclude_statuses"],
+                        upd["f_include_name_patterns"], upd["f_exclude_name_patterns"], upd["f_min_size_bytes"], upd["f_max_size_bytes"],
+                    ),
+                )
+        except Exception:
+            pass
 
         # Bootstrap profile from legacy app_config fields if profiles empty.
         profile_count = conn.execute("SELECT COUNT(*) AS c FROM profiles").fetchone()["c"]
@@ -366,6 +566,512 @@ def write_config(payload):
         conn.close()
 
     return merged
+
+
+def _csv_to_list(text):
+    return [x.strip() for x in str(text or "").split(",") if x.strip()]
+
+
+def _list_to_csv(value):
+    if isinstance(value, list):
+        return ",".join([str(x).strip() for x in value if str(x).strip()])
+    return ""
+
+
+def _to_opt_int(value):
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _sanitize_sync_type(v):
+    s = str(v or "").strip().lower()
+    return s if s in {"all", "expiry_policy", "expired_only", "no_expiry_only"} else "expiry_policy"
+
+
+def _extract_sub_auth_header_pair(headers_obj):
+    if not isinstance(headers_obj, dict):
+        return "x-api-key", ""
+    for k, v in headers_obj.items():
+        key = str(k or "").strip()
+        val = str(v or "").strip()
+        if key.lower() == "x-api-key" and val:
+            return "x-api-key", val
+    for k, v in headers_obj.items():
+        key = str(k or "").strip()
+        val = str(v or "").strip()
+        if key.lower() == "authorization" and val:
+            return "Authorization", val
+    for k, v in headers_obj.items():
+        key = str(k or "").strip()
+        val = str(v or "").strip()
+        if key and val:
+            return key, val
+    return "x-api-key", ""
+
+
+def _build_sub_auth_headers_from_row(row_dict):
+    header_name = str((row_dict or {}).get("sub_auth_header", "") or "").strip() or "x-api-key"
+    header_value = str((row_dict or {}).get("sub_authorization", "") or "").strip()
+    if not header_value:
+        return {}
+    return {header_name: header_value}
+
+
+def _mask_secret_text(secret: str) -> str:
+    s = str(secret or "")
+    n = len(s)
+    if n <= 0:
+        return ""
+    if n <= 4:
+        return "*" * n
+    return f"{s[:2]}{'*' * (n - 4)}{s[-2:]}"
+
+
+def _build_auth_sync_public_config(raw_cfg: dict) -> dict:
+    cfg = deep_merge_auth_sync_raw(build_auth_sync_default_raw_config(), raw_cfg or {})
+    sub = cfg.get("sub2api") if isinstance(cfg.get("sub2api"), dict) else {}
+    headers = sub.get("headers") if isinstance(sub.get("headers"), dict) else {}
+    auth_header, auth_value = _extract_sub_auth_header_pair(headers)
+    auth_set = bool(str(auth_value or "").strip())
+    mode = "raw"
+    if auth_header.lower() == "x-api-key":
+        mode = "x_api_key"
+    elif auth_header.lower() == "authorization":
+        mode = "bearer" if str(auth_value or "").strip().lower().startswith("bearer ") else "authorization_raw"
+    sub["auth_key_set"] = auth_set
+    sub["auth_header"] = auth_header or "x-api-key"
+    sub["auth_mode"] = mode
+    sub["auth_key_masked"] = _mask_secret_text(auth_value) if auth_set else ""
+    sub["headers"] = {sub["auth_header"]: sub["auth_key_masked"]} if auth_set else {}
+    cfg["sub2api"] = sub
+    return cfg
+
+
+def _row_to_auth_sync_raw(row):
+    r = dict(row or {})
+    out = deep_merge_auth_sync_raw(
+        build_auth_sync_default_raw_config(),
+        {
+            "interval_seconds": max(1, to_int(r.get("interval_seconds"), 300)),
+            "sub2api": {
+                "import_url": str(r.get("sub_import_url", "") or ""),
+                "timeout_seconds": max(1, to_int(r.get("sub_timeout_seconds"), 30)),
+                "verify_ssl": bool(to_int(r.get("sub_verify_ssl", 1), 1)),
+                "skip_default_group_bind": bool(to_int(r.get("sub_skip_default_group_bind", 1), 1)),
+                "headers": _build_sub_auth_headers_from_row(r),
+            },
+            "sync": {
+                "delete_after_success": False,
+                "dry_run": False,
+                "max_files_per_cycle": max(0, to_int(r.get("max_files_per_cycle", 0), 0)),
+                "default_concurrency": 1,
+                "default_priority": 0,
+                "name_template": "{filename}",
+                "save_transformed_dir": "",
+                "max_record_items": 2000,
+                "sync_type": _sanitize_sync_type(r.get("sync_type")),
+                "expiry_sync_days": to_int(r.get("expiry_sync_days", 0), 0),
+                "sync_without_expiry": True,
+                "auth_file_filter": {
+                    "only_json": bool(to_int(r.get("f_only_json", 1), 1)),
+                    "allow_runtime_only": bool(to_int(r.get("f_allow_runtime_only", 0), 0)),
+                    "allow_non_file_source": bool(to_int(r.get("f_allow_non_file_source", 0), 0)),
+                    "require_enabled": bool(to_int(r.get("f_require_enabled", 0), 0)),
+                    "include_providers": _csv_to_list(r.get("f_include_providers")),
+                    "exclude_providers": _csv_to_list(r.get("f_exclude_providers")),
+                    "include_statuses": _csv_to_list(r.get("f_include_statuses")),
+                    "exclude_statuses": _csv_to_list(r.get("f_exclude_statuses")),
+                    "include_name_patterns": _csv_to_list(r.get("f_include_name_patterns")),
+                    "exclude_name_patterns": _csv_to_list(r.get("f_exclude_name_patterns")),
+                    "min_size_bytes": _to_opt_int(r.get("f_min_size_bytes")),
+                    "max_size_bytes": _to_opt_int(r.get("f_max_size_bytes")),
+                },
+            },
+        },
+    )
+    sub = out.get("sub2api", {}) if isinstance(out.get("sub2api"), dict) else {}
+    sub["headers"] = _build_sub_auth_headers_from_row(r)
+    out["sub2api"] = sub
+    return out
+
+
+def get_auth_sync_raw_config():
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT * FROM auth_sync_settings WHERE id=1").fetchone()
+        return _row_to_auth_sync_raw(row)
+    finally:
+        conn.close()
+
+
+def save_auth_sync_raw_config(raw):
+    merged = deep_merge_auth_sync_raw(build_auth_sync_default_raw_config(), raw or {})
+    sync = merged.get("sync", {}) if isinstance(merged.get("sync"), dict) else {}
+    sub = merged.get("sub2api", {}) if isinstance(merged.get("sub2api"), dict) else {}
+    sub_headers = sub.get("headers", {}) if isinstance(sub.get("headers"), dict) else {}
+    sub_auth_header, sub_auth_value = _extract_sub_auth_header_pair(sub_headers)
+    preserve_auth_if_empty = bool(sub.get("preserve_auth_if_empty", False))
+    clear_auth = bool(sub.get("clear_auth", False))
+    f = sync.get("auth_file_filter", {}) if isinstance(sync.get("auth_file_filter"), dict) else {}
+    conn = get_conn()
+    try:
+        current = conn.execute("SELECT sub_auth_header, sub_authorization FROM auth_sync_settings WHERE id=1").fetchone()
+        current_header = str((dict(current or {}) if current else {}).get("sub_auth_header", "x-api-key") or "x-api-key").strip() or "x-api-key"
+        current_value = str((dict(current or {}) if current else {}).get("sub_authorization", "") or "").strip()
+        if clear_auth:
+            sub_auth_header = sub_auth_header or current_header
+            sub_auth_value = ""
+        elif not str(sub_auth_value or "").strip() and preserve_auth_if_empty:
+            sub_auth_header = current_header
+            sub_auth_value = current_value
+        conn.execute(
+            """
+            UPDATE auth_sync_settings SET
+              interval_seconds=?, sync_type=?, expiry_sync_days=?, sync_without_expiry=?, max_files_per_cycle=?,
+              sub_import_url=?, sub_auth_header=?, sub_authorization=?, sub_timeout_seconds=?, sub_verify_ssl=?, sub_skip_default_group_bind=?,
+              delete_after_success=?, dry_run=?, default_concurrency=?, default_priority=?, name_template=?,
+              max_record_items=?, save_transformed_dir=?,
+              f_only_json=?, f_allow_runtime_only=?, f_allow_non_file_source=?, f_require_enabled=?,
+              f_include_providers=?, f_exclude_providers=?, f_include_statuses=?, f_exclude_statuses=?,
+              f_include_name_patterns=?, f_exclude_name_patterns=?, f_min_size_bytes=?, f_max_size_bytes=?
+            WHERE id=1
+            """,
+            (
+                max(1, to_int(merged.get("interval_seconds", 300), 300)),
+                _sanitize_sync_type(sync.get("sync_type", "expiry_policy")),
+                to_int(sync.get("expiry_sync_days", 0), 0),
+                1,
+                max(0, to_int(sync.get("max_files_per_cycle", 0), 0)),
+                str(sub.get("import_url", "") or ""),
+                str(sub_auth_header or "x-api-key"),
+                str(sub_auth_value or ""),
+                max(1, to_int(sub.get("timeout_seconds", 30), 30)),
+                1 if bool(sub.get("verify_ssl", True)) else 0,
+                1 if bool(sub.get("skip_default_group_bind", True)) else 0,
+                0,
+                0,
+                1,
+                0,
+                "{filename}",
+                2000,
+                "",
+                1 if bool(f.get("only_json", True)) else 0,
+                1 if bool(f.get("allow_runtime_only", False)) else 0,
+                1 if bool(f.get("allow_non_file_source", False)) else 0,
+                1 if bool(f.get("require_enabled", False)) else 0,
+                _list_to_csv(f.get("include_providers")),
+                _list_to_csv(f.get("exclude_providers")),
+                _list_to_csv(f.get("include_statuses")),
+                _list_to_csv(f.get("exclude_statuses")),
+                _list_to_csv(f.get("include_name_patterns")),
+                _list_to_csv(f.get("exclude_name_patterns")),
+                _to_opt_int(f.get("min_size_bytes")),
+                _to_opt_int(f.get("max_size_bytes")),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return get_auth_sync_raw_config()
+
+
+def get_active_cpa_sync_source():
+    profile = get_active_profile()
+    if not profile:
+        raise RuntimeError("active profile not found")
+    raw_base = str(profile.get("base_url", "") or "").strip().rstrip("/")
+    token = str(profile.get("token", "") or "").strip()
+    if not raw_base:
+        raise RuntimeError("active profile base_url is empty")
+    if raw_base.endswith("/v0/management"):
+        mgmt_base = raw_base
+    else:
+        mgmt_base = f"{raw_base}/v0/management"
+    return {
+        "profile_id": profile.get("id"),
+        "profile_name": profile.get("name"),
+        "base_url": mgmt_base,
+        "management_key": token,
+    }
+
+
+def persist_auth_sync_file_record(item):
+    payload = dict(item or {})
+    file_name = str(payload.get("file_name", "") or "").strip()
+    if not file_name:
+        return
+    ts = str(payload.get("ts", "") or "").strip() or now_iso()
+    trigger = str(payload.get("trigger", "") or "").strip()
+    status = str(payload.get("status", "") or "").strip()
+    synced_to_sub2 = 1 if payload.get("synced_to_sub2") else 0
+    sync_time = payload.get("sync_time")
+    sync_time = str(sync_time).strip() if sync_time else None
+    message = str(payload.get("message", "") or "")
+    auth_json = json.dumps(payload.get("auth_doc"), ensure_ascii=False) if isinstance(payload.get("auth_doc"), dict) else ""
+    account_json = json.dumps(payload.get("account"), ensure_ascii=False) if isinstance(payload.get("account"), dict) else ""
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO auth_sync_file_records (
+              ts, file_name, trigger, status, synced_to_sub2, sync_time, message, auth_json, account_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (ts, file_name, trigger, status, synced_to_sub2, sync_time, message, auth_json, account_json),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_auth_sync_file_latest_map(file_names):
+    names = [str(x or "").strip() for x in (file_names or []) if str(x or "").strip()]
+    if not names:
+        return {}
+    placeholders = ",".join(["?"] * len(names))
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT r.*
+            FROM auth_sync_file_records r
+            INNER JOIN (
+              SELECT file_name, MAX(id) AS max_id
+              FROM auth_sync_file_records
+              WHERE file_name IN ({placeholders})
+              GROUP BY file_name
+            ) t ON r.id = t.max_id
+            """,
+            names,
+        ).fetchall()
+        out = {}
+        for row in rows:
+            d = dict(row)
+            out[d["file_name"]] = {
+                "synced_to_sub2": bool(d.get("synced_to_sub2")),
+                "sync_time": d.get("sync_time"),
+                "last_status": d.get("status"),
+                "last_message": d.get("message"),
+                "record_ts": d.get("ts"),
+                "has_saved_auth_json": 1 if str(d.get("auth_json") or "").strip() else 0,
+                "has_saved_account_json": 1 if str(d.get("account_json") or "").strip() else 0,
+            }
+        return out
+    finally:
+        conn.close()
+
+
+def get_auth_sync_file_records_page(page=1, page_size=50):
+    p = max(1, to_int(page, 1))
+    ps = max(1, min(2000, to_int(page_size, 50)))
+    offset = (p - 1) * ps
+    conn = get_conn()
+    try:
+        total = conn.execute("SELECT COUNT(1) AS c FROM auth_sync_file_records").fetchone()["c"]
+        rows = conn.execute(
+            """
+            SELECT id, ts, file_name, trigger, status, synced_to_sub2, sync_time, message
+            FROM auth_sync_file_records
+            ORDER BY id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (ps, max(0, offset)),
+        ).fetchall()
+        items = []
+        for row in rows:
+            d = dict(row)
+            d["synced_to_sub2"] = bool(d.get("synced_to_sub2"))
+            items.append(d)
+        total_pages = max(1, (int(total) + ps - 1) // ps) if int(total) > 0 else 1
+        if p > total_pages:
+            p = total_pages
+        return {
+            "items": items,
+            "page": int(p),
+            "page_size": int(ps),
+            "total": int(total),
+            "total_pages": int(total_pages),
+        }
+    finally:
+        conn.close()
+
+
+def save_auth_sync_cached_files(rows):
+    fetched_at = now_iso()
+    clean_rows = []
+    conn = get_conn()
+    try:
+        old_rows = conn.execute("SELECT file_name, sync_enabled FROM auth_sync_cached_files").fetchall()
+        enabled_map = {str(r["file_name"] or "").strip(): bool(to_int(r["sync_enabled"], 0)) for r in old_rows}
+    finally:
+        conn.close()
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name", "") or "").strip()
+        if not name:
+            continue
+        payload = dict(row)
+        payload["name"] = name
+        payload["sync_enabled"] = bool(enabled_map.get(name, False))
+        clean_rows.append(payload)
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM auth_sync_cached_files")
+        if clean_rows:
+            conn.executemany(
+                "INSERT INTO auth_sync_cached_files (file_name, fetched_at, entry_json, sync_enabled) VALUES (?, ?, ?, ?)",
+                [(r["name"], fetched_at, json.dumps(r, ensure_ascii=False), 1 if r.get("sync_enabled") else 0) for r in clean_rows],
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return fetched_at
+
+
+def get_auth_sync_cached_files():
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """
+            SELECT file_name, fetched_at, entry_json, sync_enabled
+            FROM auth_sync_cached_files
+            ORDER BY LOWER(file_name) ASC
+            """
+        ).fetchall()
+        out = []
+        last_fetched_at = None
+        for row in rows:
+            fetched_at = str(row["fetched_at"] or "").strip()
+            if fetched_at and (not last_fetched_at or fetched_at > last_fetched_at):
+                last_fetched_at = fetched_at
+            try:
+                item = json.loads(row["entry_json"] or "{}")
+            except Exception:
+                item = {}
+            if not isinstance(item, dict):
+                item = {}
+            item["name"] = str(row["file_name"] or "").strip()
+            item["cached_fetched_at"] = fetched_at
+            item["sync_enabled"] = bool(to_int(row["sync_enabled"], 0))
+            out.append(item)
+        return {"last_fetched_at": last_fetched_at, "rows": out}
+    finally:
+        conn.close()
+
+
+def set_auth_sync_cached_files_enabled(file_names, enabled):
+    names = [str(x or "").strip() for x in (file_names or []) if str(x or "").strip()]
+    if not names:
+        return 0
+    placeholders = ",".join(["?"] * len(names))
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT file_name, entry_json FROM auth_sync_cached_files WHERE file_name IN ({placeholders})",
+            names,
+        ).fetchall()
+        count = 0
+        for row in rows:
+            file_name = str(row["file_name"] or "").strip()
+            try:
+                item = json.loads(row["entry_json"] or "{}")
+            except Exception:
+                item = {}
+            if not isinstance(item, dict):
+                item = {}
+            item["name"] = file_name
+            item["sync_enabled"] = bool(enabled)
+            conn.execute(
+                "UPDATE auth_sync_cached_files SET entry_json=?, sync_enabled=? WHERE file_name=?",
+                (json.dumps(item, ensure_ascii=False), 1 if enabled else 0, file_name),
+            )
+            count += 1
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def get_auth_sync_cached_enabled_name_set():
+    conn = get_conn()
+    try:
+        rows = conn.execute("SELECT file_name FROM auth_sync_cached_files WHERE sync_enabled=1").fetchall()
+        return {str(r["file_name"] or "").strip() for r in rows if str(r["file_name"] or "").strip()}
+    finally:
+        conn.close()
+
+
+def get_auth_sync_cached_entry_json_map(file_names):
+    names = [str(x or "").strip() for x in (file_names or []) if str(x or "").strip()]
+    if not names:
+        return {}
+    placeholders = ",".join(["?"] * len(names))
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT file_name, fetched_at, entry_json
+            FROM auth_sync_cached_files
+            WHERE file_name IN ({placeholders})
+            ORDER BY LOWER(file_name) ASC
+            """,
+            names,
+        ).fetchall()
+        out = {}
+        for row in rows:
+            file_name = str(row["file_name"] or "").strip()
+            if not file_name:
+                continue
+            raw = row["entry_json"] or "{}"
+            try:
+                entry_json = json.loads(raw)
+            except Exception:
+                entry_json = raw
+            out[file_name] = {
+                "file": file_name,
+                "fetched_at": str(row["fetched_at"] or "").strip() or None,
+                "entry_json": entry_json,
+            }
+        return out
+    finally:
+        conn.close()
+
+
+def merge_auth_sync_rows_with_latest(rows):
+    out = [dict(x) for x in (rows or []) if isinstance(x, dict)]
+    latest = get_auth_sync_file_latest_map([x.get("name") for x in out])
+    for row in out:
+        info = latest.get(str(row.get("name", "")).strip())
+        if info:
+            row.update(info)
+    return out
+
+
+def get_auth_sync_manager():
+    if auth_sync_manager is None:
+        raise RuntimeError("auth sync manager not initialized")
+    return auth_sync_manager
+
+
+def init_auth_sync_manager():
+    global auth_sync_manager
+    raw_cfg = get_auth_sync_raw_config()
+    auth_sync_manager = AuthSyncManager(
+        root_dir=ROOT,
+        raw_config=raw_cfg,
+        save_raw_config=save_auth_sync_raw_config,
+        cpa_source_getter=get_active_cpa_sync_source,
+        file_audit_hook=persist_auth_sync_file_record,
+        cached_enabled_name_getter=get_auth_sync_cached_enabled_name_set,
+        record_db_path=str(DB_PATH),
+    )
+    auth_sync_manager.start()
+    return auth_sync_manager
 
 
 def sanitize_profile_payload(payload):
@@ -1390,6 +2096,45 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "data": query_records(hours, profile_id, keyword, limit)})
             return
 
+        if u.path == "/api/auth-sync/status":
+            manager = get_auth_sync_manager()
+            self._json(200, {"ok": True, "data": manager.get_status()})
+            return
+
+        if u.path == "/api/auth-sync/config":
+            manager = get_auth_sync_manager()
+            self._json(200, {"ok": True, "data": _build_auth_sync_public_config(manager.get_config())})
+            return
+
+        if u.path == "/api/auth-sync/records":
+            manager = get_auth_sync_manager()
+            page = max(1, to_int((q.get("page") or ["1"])[0], 1))
+            page_size = max(1, min(2000, to_int((q.get("page_size") or ["50"])[0], 50)))
+            self._json(200, {"ok": True, "data": manager.get_records_page(page=page, page_size=page_size)})
+            return
+
+        if u.path == "/api/auth-sync/file-records":
+            page = max(1, to_int((q.get("page") or ["1"])[0], 1))
+            page_size = max(1, min(2000, to_int((q.get("page_size") or ["50"])[0], 50)))
+            self._json(200, {"ok": True, "data": get_auth_sync_file_records_page(page=page, page_size=page_size)})
+            return
+
+        if u.path == "/api/auth-sync/files":
+            manager = get_auth_sync_manager()
+            apply_filter = bool(to_int((q.get("apply_filter") or ["0"])[0], 0))
+            data = manager.fetch_auth_files(apply_filter=apply_filter)
+            save_auth_sync_cached_files(data)
+            cached = get_auth_sync_cached_files()
+            merged = merge_auth_sync_rows_with_latest(cached.get("rows") or [])
+            self._json(200, {"ok": True, "last_fetched_at": cached.get("last_fetched_at"), "data": merged})
+            return
+
+        if u.path == "/api/auth-sync/files-last":
+            cached = get_auth_sync_cached_files()
+            merged = merge_auth_sync_rows_with_latest(cached.get("rows") or [])
+            self._json(200, {"ok": True, "last_fetched_at": cached.get("last_fetched_at"), "data": merged})
+            return
+
         self._json(404, {"ok": False, "message": "not found"})
 
     def handle_api_post(self, u):
@@ -1438,6 +2183,63 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "message": "pruned", "data": stats})
             return
 
+        if u.path == "/api/auth-sync/config":
+            payload = self._read_json()
+            try:
+                manager = get_auth_sync_manager()
+                manager.update_config(payload)
+                self._json(200, {"ok": True, "data": _build_auth_sync_public_config(manager.get_config()), "message": "auth sync config saved"})
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
+        if u.path == "/api/auth-sync/run":
+            manager = get_auth_sync_manager()
+            manager.request_run(trigger="manual")
+            self._json(200, {"ok": True, "message": "auth sync queued"})
+            return
+
+        if u.path == "/api/auth-sync/sync-selected":
+            payload = self._read_json()
+            manager = get_auth_sync_manager()
+            try:
+                override = payload.get("config") if isinstance(payload, dict) else {}
+                summary = manager.sync_selected_files(payload.get("files") or [], trigger="manual_selected", raw_override=override)
+                self._json(200, {"ok": True, "message": "selected files synced", "data": summary})
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
+        if u.path == "/api/auth-sync/preview-selected":
+            self._json(403, {"ok": False, "message": "preview feature disabled for security"})
+            return
+
+        if u.path == "/api/auth-sync/db-json-selected":
+            self._json(403, {"ok": False, "message": "auth json query disabled for security"})
+            return
+
+        if u.path == "/api/auth-sync/files-enabled":
+            payload = self._read_json()
+            try:
+                files = payload.get("files") if isinstance(payload, dict) else []
+                enabled = bool(payload.get("enabled")) if isinstance(payload, dict) else False
+                updated = set_auth_sync_cached_files_enabled(files, enabled)
+                self._json(200, {"ok": True, "message": "sync enabled updated", "data": {"updated": updated, "enabled": enabled}})
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
+        if u.path == "/api/auth-sync/sub2-validate":
+            payload = self._read_json()
+            manager = get_auth_sync_manager()
+            try:
+                override = payload.get("config") if isinstance(payload, dict) else {}
+                data = manager.validate_sub2_auth(override)
+                self._json(200, {"ok": True, "message": data.get("message", ""), "data": data})
+            except Exception as e:
+                self._json(400, {"ok": False, "message": str(e)})
+            return
+
         self._json(404, {"ok": False, "message": "not found"})
 
     def serve_static(self, path):
@@ -1477,13 +2279,19 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     init_db()
+    sync_manager = init_auth_sync_manager()
     scheduler = RefreshScheduler()
     scheduler.start()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"Server: http://{HOST}:{PORT}")
     print(f"DB: {DB_PATH}")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+        sync_manager.stop()
 
 
 if __name__ == "__main__":

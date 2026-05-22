@@ -1,0 +1,851 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CPA监控 - 授权同步</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --bg-top: #eaf2ff;
+      --bg-orb-a: rgba(14, 165, 233, 0.12);
+      --bg-orb-b: rgba(20, 184, 166, 0.12);
+      --panel: #fff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --line-strong: #cbd5e1;
+      --input-bg: #fff;
+      --input-text: #111827;
+      --ghost-bg: #e2e8f0;
+      --ghost-text: #334155;
+      --pill-bg: #f8fafc;
+      --card-shadow: 0 4px 20px rgba(2, 6, 23, 0.06);
+      --accent: #0f766e;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      --good: #166534;
+    }
+    [data-theme="dark"] {
+      --bg: #0b1220;
+      --bg-top: #0f1b33;
+      --bg-orb-a: rgba(56, 189, 248, 0.14);
+      --bg-orb-b: rgba(45, 212, 191, 0.14);
+      --panel: #0f172a;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --line: #243247;
+      --line-strong: #334155;
+      --input-bg: #111c30;
+      --input-text: #e2e8f0;
+      --ghost-bg: #1d2a3f;
+      --ghost-text: #cbd5e1;
+      --pill-bg: #111c30;
+      --card-shadow: 0 8px 26px rgba(2, 6, 23, 0.45);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1200px 500px at 8% -10%, var(--bg-orb-a), transparent 62%),
+        radial-gradient(1000px 420px at 92% -16%, var(--bg-orb-b), transparent 60%),
+        linear-gradient(180deg, var(--bg-top) 0, var(--bg) 220px);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .wrap { max-width: 1320px; margin: 22px auto 40px; padding: 0 16px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--card-shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    h1 { margin: 0; font-size: 22px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { opacity: 0.9; }
+    .small { color: var(--muted); font-size: 12px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .brand-pill {
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      padding: 10px 18px;
+      font-weight: 800;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--text);
+      background: linear-gradient(180deg, var(--panel) 0%, var(--pill-bg) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .chip-group {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--pill-bg);
+      padding: 4px;
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .chip-btn {
+      height: 30px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 12px;
+      font-size: 12px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chip-btn.active {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: var(--card-shadow);
+    }
+    .chip-link {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 14px;
+      background: var(--panel);
+      color: var(--text);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .pill {
+      display: inline-block;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 4px 10px;
+      margin-right: 8px;
+      background: var(--pill-bg);
+      font-size: 12px;
+      color: var(--text);
+    }
+    .theme-switch {
+      height: 30px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--input-text);
+      padding: 0 8px;
+      font-size: 12px;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--pill-bg);
+      padding: 10px;
+    }
+    .kpi .t { color: var(--muted); font-size: 12px; }
+    .kpi .v { margin-top: 6px; font-size: 18px; font-weight: 700; }
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+      align-items: end;
+    }
+    .field { grid-column: span 12; }
+    .field.sm { grid-column: span 3; }
+    .field.md { grid-column: span 6; }
+    .field label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      font-size: 14px;
+      background: var(--input-bg);
+      color: var(--input-text);
+    }
+    .field input, .field select { height: 38px; padding: 0 10px; }
+    .field textarea { min-height: 110px; padding: 10px; resize: vertical; line-height: 1.5; }
+    .checkline {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--pill-bg);
+    }
+    .checkline label { font-size: 13px; color: var(--text); }
+    .section-title {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+    .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      height: 36px;
+      padding: 0 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost { background: var(--ghost-bg); color: var(--ghost-text); border: 1px solid var(--line); }
+    .status { margin-top: 8px; min-height: 18px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .inline-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: 60vh; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px 6px; vertical-align: middle; }
+    th { background: var(--pill-bg); font-size: 12px; position: sticky; top: 0; z-index: 1; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    details { margin-top: 10px; }
+    details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+    .raw { width: 100%; min-height: 160px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px; font-size: 12px; }
+    @media (max-width: 980px) {
+      .field.sm, .field.md { grid-column: span 12; }
+      .kpis { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+      .top-actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="topbar">
+        <div class="brand-pill">CPA授权同步</div>
+        <div class="top-actions">
+          <div class="chip-group" title="主题模式">
+            <button id="themeLightBtn" class="chip-btn" type="button">Light</button>
+            <button id="themeDarkBtn" class="chip-btn" type="button">Dark</button>
+            <button id="themeAutoBtn" class="chip-btn" type="button">Auto</button>
+          </div>
+          <a class="chip-link" href="/">监控页面</a>
+          <a class="chip-link" href="/config.html">配置中心</a>
+          <select id="themeMode" class="theme-switch" title="主题模式" style="display:none;">
+            <option value="auto">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <span class="pill">同步状态：<span id="syncRunning">-</span></span>
+        <span class="pill">同步类型：<span id="syncType">-</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><div class="t">下次计划时间</div><div class="v mono" id="nextRunAt">-</div></div>
+        <div class="kpi"><div class="t">上次周期结果</div><div class="v" id="lastCycleStatus">-</div></div>
+        <div class="kpi"><div class="t">上次成功/失败/跳过</div><div class="v mono" id="lastCycleSummary">-</div></div>
+        <div class="kpi"><div class="t">上次耗时</div><div class="v mono" id="lastCycleDuration">-</div></div>
+      </div>
+      <div class="actions">
+        <button id="runSyncBtn" class="btn-primary">立即同步</button>
+        <button id="reloadStatusBtn" class="btn-ghost">刷新状态</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="inline-tools">
+        <button id="fetchAuthFilesBtn" class="btn-ghost">手动获取认证文件列表</button>
+        <button id="selectAllFilesBtn" class="btn-ghost">全选</button>
+        <button id="clearSelectedFilesBtn" class="btn-ghost">清空选择</button>
+        <button id="syncSelectedFilesBtn" class="btn-primary">同步选中认证文件</button>
+      </div>
+      <div class="hint" id="authFilesHint" style="margin-top:8px;">点击“手动获取认证文件列表”后可勾选同步。</div>
+      <div class="table-wrap" style="margin-top:10px; max-height:40vh;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:44px;">选中</th>
+              <th>文件名</th>
+              <th>Provider</th>
+              <th>最后刷新token时间</th>
+              <th>同步sub2</th>
+              <th>同步时间</th>
+              <th>状态</th>
+              <th>运行同步</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="authFilesTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="actions" style="margin-top:0;">
+        <div class="field sm" style="max-width:220px;">
+          <label>每页条数</label>
+          <select id="recordPageSize">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+        <div class="field md" style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
+          <button id="reloadCycleRecordsBtn" class="btn-ghost" type="button">刷新周期记录</button>
+          <button id="recordPrevBtn" class="btn-ghost" type="button">上一页</button>
+          <button id="recordNextBtn" class="btn-ghost" type="button">下一页</button>
+          <span id="recordPageInfo" class="small">第 1 / 1 页，共 0 条</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>类型</th>
+              <th>状态</th>
+              <th>文件/摘要</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="recordsTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="actions" style="margin-top:0;">
+        <div class="field sm" style="max-width:220px;">
+          <label>文件记录每页条数</label>
+          <select id="fileRecordPageSize">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+        <div class="field md" style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
+          <button id="reloadFileRecordsBtn" class="btn-ghost" type="button">刷新文件记录</button>
+          <button id="fileRecordPrevBtn" class="btn-ghost" type="button">上一页</button>
+          <button id="fileRecordNextBtn" class="btn-ghost" type="button">下一页</button>
+          <span id="fileRecordPageInfo" class="small">第 1 / 1 页，共 0 条</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>文件名</th>
+              <th>触发方式</th>
+              <th>状态</th>
+              <th>同步sub2</th>
+              <th>同步时间</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="fileRecordsTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const THEME_KEY = "cpa_theme_mode_v1";
+    let authFiles = [];
+    const selectedAuthFiles = new Set();
+    let lastAuthFilesFetchedAt = null;
+    let recordPage = 1;
+    let recordPageSize = 50;
+    let fileRecordPage = 1;
+    let fileRecordPageSize = 50;
+
+    function systemTheme() {
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+
+    function applyTheme(mode = "auto") {
+      const effective = mode === "auto" ? systemTheme() : mode;
+      document.documentElement.setAttribute("data-theme", effective);
+      const sel = $("themeMode");
+      if (sel && sel.value !== mode) sel.value = mode;
+      ["themeLightBtn", "themeDarkBtn", "themeAutoBtn"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        el.classList.remove("active");
+      });
+      if (mode === "light") $("themeLightBtn") && $("themeLightBtn").classList.add("active");
+      else if (mode === "dark") $("themeDarkBtn") && $("themeDarkBtn").classList.add("active");
+      else $("themeAutoBtn") && $("themeAutoBtn").classList.add("active");
+      try { localStorage.setItem(THEME_KEY, mode); } catch (_) {}
+    }
+
+    function setStatus(msg, level = "info") {
+      const el = $("status");
+      el.textContent = msg;
+      el.style.color = level === "error" ? "var(--bad)" : level === "warn" ? "var(--warn)" : "var(--muted)";
+    }
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[c]));
+    }
+
+    function num(v, d = 0) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : d;
+    }
+
+    function fmtTime(v) {
+      if (!v) return "-";
+      const d = new Date(v);
+      if (!Number.isFinite(d.getTime())) return String(v);
+      return d.toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function pickTokenRefreshAt(row) {
+      const item = (row && typeof row === "object") ? row : {};
+      const keys = [
+        "last_refresh",
+        "last_refresh_at",
+        "lastRefresh",
+        "lastRefreshAt",
+        "refresh_at",
+        "refreshAt",
+        "refreshed_at",
+        "refreshedAt",
+        "updated_at",
+        "updatedAt",
+        "update_at",
+      ];
+      for (const k of keys) {
+        const v = item[k];
+        if (v !== undefined && v !== null && String(v).trim()) return v;
+      }
+      const token = item.token;
+      if (token && typeof token === "object") {
+        for (const k of keys) {
+          const v = token[k];
+          if (v !== undefined && v !== null && String(v).trim()) return v;
+        }
+      }
+      return null;
+    }
+
+    function statusText(v) {
+      const raw = String(v || "").trim();
+      if (!raw) return "-";
+      const key = raw.toLowerCase();
+      const map = {
+        success: "成功",
+        succeeded: "成功",
+        ok: "成功",
+        active: "可用",
+        enabled: "已启用",
+        inactive: "未激活",
+        disabled: "已禁用",
+        expired: "已过期",
+        invalid: "无效",
+        unavailable: "不可用",
+        paused: "已暂停",
+        revoked: "已撤销",
+        failed: "失败",
+        fail: "失败",
+        error: "失败",
+        partial: "部分成功",
+        running: "运行中",
+        pending: "等待中",
+        queued: "排队中",
+        skipped: "已跳过",
+        skip: "已跳过",
+        idle: "空闲",
+        unknown: "未知",
+      };
+      return map[key] || raw;
+    }
+
+    function statusClass(v) {
+      const key = String(v || "").trim().toLowerCase();
+      if (["success", "succeeded", "ok", "active", "enabled"].includes(key)) return "good";
+      if (["failed", "fail", "error", "invalid", "unavailable", "revoked"].includes(key)) return "bad";
+      if (["partial", "running", "pending", "queued", "skipped", "skip", "inactive", "disabled", "expired", "paused"].includes(key)) return "warn";
+      return "";
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(path, opts);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.ok === false) throw new Error(d.message || `${r.status} ${r.statusText}`);
+      return d;
+    }
+
+    function renderStatus(d) {
+      $("syncRunning").textContent = d.running ? "运行中" : "空闲";
+      $("syncRunning").className = d.running ? "good" : "";
+      $("syncType").textContent = d.sync_type || "-";
+      $("nextRunAt").textContent = fmtTime(d.next_run_at);
+      const lc = d.last_cycle || {};
+      $("lastCycleStatus").textContent = statusText(lc.status);
+      $("lastCycleStatus").className = statusClass(lc.status);
+      $("lastCycleSummary").textContent = `ok=${lc.ok || 0} fail=${lc.fail || 0} skip=${lc.skipped || 0}`;
+      $("lastCycleDuration").textContent = `${lc.duration_ms || 0} ms`;
+    }
+
+    function renderRecords(rows, pageData = {}) {
+      const tb = $("recordsTbody");
+      const list = Array.isArray(rows) ? rows : [];
+      const page = Number(pageData.page || recordPage || 1);
+      const totalPages = Number(pageData.total_pages || 1);
+      const total = Number(pageData.total || list.length || 0);
+      $("recordPageInfo").textContent = `第 ${page} / ${totalPages} 页，共 ${total} 条`;
+      $("recordPrevBtn").disabled = page <= 1;
+      $("recordNextBtn").disabled = page >= totalPages;
+      if (!list.length) {
+        tb.innerHTML = `<tr><td colspan="5" style="color:var(--muted);">暂无记录</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.map((r) => {
+        const summary = r.file || (r.kind === "cycle"
+          ? `total=${r.total || 0}, ok=${r.ok || 0}, fail=${r.fail || 0}, skip=${r.skipped || 0}`
+          : (r.account_name || "-"));
+        const sClass = statusClass(r.status);
+        return `<tr>
+          <td class="mono">${esc(fmtTime(r.ts))}</td>
+          <td>${esc(r.kind || "-")}</td>
+          <td class="${sClass}">${esc(statusText(r.status))}</td>
+          <td>${esc(summary)}</td>
+          <td>${esc(r.message || "-")}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderFileRecords(rows, pageData = {}) {
+      const tb = $("fileRecordsTbody");
+      const list = Array.isArray(rows) ? rows : [];
+      const page = Number(pageData.page || fileRecordPage || 1);
+      const totalPages = Number(pageData.total_pages || 1);
+      const total = Number(pageData.total || list.length || 0);
+      $("fileRecordPageInfo").textContent = `第 ${page} / ${totalPages} 页，共 ${total} 条`;
+      $("fileRecordPrevBtn").disabled = page <= 1;
+      $("fileRecordNextBtn").disabled = page >= totalPages;
+      if (!list.length) {
+        tb.innerHTML = `<tr><td colspan="7" style="color:var(--muted);">暂无文件同步记录</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.map((r) => {
+        const sClass = statusClass(r.status);
+        return `<tr>
+          <td class="mono">${esc(fmtTime(r.ts))}</td>
+          <td class="mono">${esc(r.file_name || "-")}</td>
+          <td>${esc(r.trigger || "-")}</td>
+          <td class="${sClass}">${esc(statusText(r.status))}</td>
+          <td class="${r.synced_to_sub2 ? "good" : "warn"}">${r.synced_to_sub2 ? "是" : "否"}</td>
+          <td class="mono">${esc(fmtTime(r.sync_time))}</td>
+          <td>${esc(r.message || "-")}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderAuthFiles() {
+      const tb = $("authFilesTbody");
+      if (!Array.isArray(authFiles) || !authFiles.length) {
+        tb.innerHTML = `<tr><td colspan="9" style="color:var(--muted);">暂无认证文件，请先手动获取。</td></tr>`;
+        const tsText = lastAuthFilesFetchedAt ? `上次获取认证文件列表时间：${fmtTime(lastAuthFilesFetchedAt)}。` : "";
+        $("authFilesHint").textContent = `当前列表为空。${tsText}`;
+        return;
+      }
+      tb.innerHTML = authFiles.map((row) => {
+        const name = String(row.name || "");
+        const checked = selectedAuthFiles.has(name) ? "checked" : "";
+        const statusLabel = statusText(row.status);
+        const rowStatusClass = statusClass(row.status);
+        const provider = row.provider_detected || row.provider || row.type || "-";
+        const syncEnabled = !!row.sync_enabled;
+        const syncedText = row.synced_to_sub2 ? "是" : "否";
+        const syncedClass = row.synced_to_sub2 ? "good" : "warn";
+        const tokenRefreshTimeRaw = pickTokenRefreshAt(row) || row.cached_fetched_at || lastAuthFilesFetchedAt;
+        const fetchedTime = tokenRefreshTimeRaw ? fmtTime(tokenRefreshTimeRaw) : "-";
+        const syncTime = row.sync_time ? fmtTime(row.sync_time) : "-";
+        return `<tr>
+          <td><input type="checkbox" data-file-name="${esc(name)}" ${checked} /></td>
+          <td class="mono">${esc(name)}</td>
+          <td>${esc(provider)}</td>
+          <td class="mono">${esc(fetchedTime)}</td>
+          <td class="${syncedClass}">${syncedText}</td>
+          <td class="mono">${esc(syncTime)}</td>
+          <td class="${rowStatusClass}">${esc(statusLabel)}</td>
+          <td><input type="checkbox" data-sync-enabled-name="${esc(name)}" ${syncEnabled ? "checked" : ""} /></td>
+          <td><button class="btn-primary" style="height:28px;padding:0 8px;font-size:12px;" data-file-act="sync" data-file-name="${esc(name)}">立即同步</button></td>
+        </tr>`;
+      }).join("");
+      const tsText = lastAuthFilesFetchedAt ? `，上次获取认证文件列表时间：${fmtTime(lastAuthFilesFetchedAt)}` : "";
+      $("authFilesHint").textContent = `共 ${authFiles.length} 个文件，已选择 ${selectedAuthFiles.size} 个${tsText}。`;
+    }
+
+    async function reloadStatus() {
+      const d = await api("/api/auth-sync/status");
+      renderStatus(d.data || {});
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function waitManualSyncDone(timeoutMs = 120000, intervalMs = 1500) {
+      const started = Date.now();
+      let seenRunning = false;
+      while (Date.now() - started < timeoutMs) {
+        const d = await api("/api/auth-sync/status");
+        const data = d.data || {};
+        renderStatus(data);
+        if (data.running) {
+          seenRunning = true;
+        } else {
+          const lc = data.last_cycle || {};
+          if (seenRunning || lc.trigger === "manual") return lc;
+        }
+        await sleep(intervalMs);
+      }
+      return null;
+    }
+
+    async function runSync() {
+      await api("/api/auth-sync/run", { method: "POST" });
+      setStatus("已触发手动同步，完成后将自动刷新列表。");
+      await reloadStatus();
+      const lastCycle = await waitManualSyncDone();
+      await Promise.all([reloadStatus(), reloadRecords(), reloadFileRecords(), fetchAuthFiles(true)]);
+      if (lastCycle && lastCycle.status === "success") {
+        setStatus("手动同步成功，列表已自动刷新。");
+      }
+    }
+
+    async function reloadRecords(resetPage = false) {
+      const nextSize = Math.max(1, Math.min(2000, num($("recordPageSize").value, 50)));
+      if (resetPage || nextSize !== recordPageSize) recordPage = 1;
+      recordPageSize = nextSize;
+      const d = await api(`/api/auth-sync/records?page=${encodeURIComponent(recordPage)}&page_size=${encodeURIComponent(recordPageSize)}`);
+      const pageData = (d.data && typeof d.data === "object") ? d.data : {};
+      const totalPages = Math.max(1, Number(pageData.total_pages || 1));
+      if (recordPage > totalPages) {
+        recordPage = totalPages;
+        const d2 = await api(`/api/auth-sync/records?page=${encodeURIComponent(recordPage)}&page_size=${encodeURIComponent(recordPageSize)}`);
+        const pageData2 = (d2.data && typeof d2.data === "object") ? d2.data : {};
+        renderRecords(Array.isArray(pageData2.items) ? pageData2.items : [], pageData2);
+        return;
+      }
+      renderRecords(Array.isArray(pageData.items) ? pageData.items : [], pageData);
+    }
+
+    async function reloadFileRecords(resetPage = false) {
+      const nextSize = Math.max(1, Math.min(2000, num($("fileRecordPageSize").value, 50)));
+      if (resetPage || nextSize !== fileRecordPageSize) fileRecordPage = 1;
+      fileRecordPageSize = nextSize;
+      const d = await api(`/api/auth-sync/file-records?page=${encodeURIComponent(fileRecordPage)}&page_size=${encodeURIComponent(fileRecordPageSize)}`);
+      const pageData = (d.data && typeof d.data === "object") ? d.data : {};
+      const totalPages = Math.max(1, Number(pageData.total_pages || 1));
+      if (fileRecordPage > totalPages) {
+        fileRecordPage = totalPages;
+        const d2 = await api(`/api/auth-sync/file-records?page=${encodeURIComponent(fileRecordPage)}&page_size=${encodeURIComponent(fileRecordPageSize)}`);
+        const pageData2 = (d2.data && typeof d2.data === "object") ? d2.data : {};
+        renderFileRecords(Array.isArray(pageData2.items) ? pageData2.items : [], pageData2);
+        return;
+      }
+      renderFileRecords(Array.isArray(pageData.items) ? pageData.items : [], pageData);
+    }
+
+    async function fetchAuthFiles(silent = false) {
+      const d = await api("/api/auth-sync/files");
+      authFiles = Array.isArray(d.data) ? d.data : [];
+      lastAuthFilesFetchedAt = d.last_fetched_at || new Date().toISOString();
+      const validNames = new Set(authFiles.map((x) => String(x.name || "")).filter(Boolean));
+      [...selectedAuthFiles].forEach((name) => { if (!validNames.has(name)) selectedAuthFiles.delete(name); });
+      renderAuthFiles();
+      if (!silent) {
+        setStatus(`认证文件列表已刷新，共 ${authFiles.length} 个。`);
+      }
+    }
+
+    async function setFilesSyncEnabled(files, enabled) {
+      const names = Array.isArray(files) ? files.map((x) => String(x || "").trim()).filter(Boolean) : [];
+      if (!names.length) return;
+      await api("/api/auth-sync/files-enabled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: names, enabled: !!enabled }),
+      });
+      const nameSet = new Set(names);
+      authFiles = authFiles.map((row) => {
+        const name = String((row && row.name) || "").trim();
+        if (!nameSet.has(name)) return row;
+        return { ...row, sync_enabled: !!enabled };
+      });
+      renderAuthFiles();
+    }
+
+    async function loadLastAuthFiles() {
+      const d = await api("/api/auth-sync/files-last");
+      authFiles = Array.isArray(d.data) ? d.data : [];
+      lastAuthFilesFetchedAt = d.last_fetched_at || null;
+      const validNames = new Set(authFiles.map((x) => String(x.name || "")).filter(Boolean));
+      [...selectedAuthFiles].forEach((name) => { if (!validNames.has(name)) selectedAuthFiles.delete(name); });
+      renderAuthFiles();
+    }
+
+    function selectAllFiles() {
+      selectedAuthFiles.clear();
+      for (const row of authFiles) {
+        const name = String((row && row.name) || "").trim();
+        if (name) selectedAuthFiles.add(name);
+      }
+      renderAuthFiles();
+    }
+
+    function clearSelectedFiles() {
+      selectedAuthFiles.clear();
+      renderAuthFiles();
+    }
+
+    async function syncSelectedFiles(filesInput = null) {
+      const files = Array.isArray(filesInput) ? filesInput : [...selectedAuthFiles];
+      if (!files.length) {
+        setStatus("请先勾选至少一个认证文件。", "warn");
+        return;
+      }
+      const d = await api("/api/auth-sync/sync-selected", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files }),
+      });
+      const s = d.data || {};
+      setStatus(`选中文件同步完成：total=${s.total || 0}, ok=${s.ok || 0}, fail=${s.fail || 0}, skip=${s.skipped || 0}`);
+      await Promise.all([reloadStatus(), reloadRecords(), reloadFileRecords(), fetchAuthFiles()]);
+    }
+
+    $("runSyncBtn").addEventListener("click", () => runSync().catch((e) => setStatus(`触发失败: ${e.message}`, "error")));
+    $("reloadStatusBtn").addEventListener("click", () => reloadStatus().catch((e) => setStatus(`状态刷新失败: ${e.message}`, "error")));
+    $("reloadCycleRecordsBtn").addEventListener("click", () => reloadRecords().catch((e) => setStatus(`周期记录刷新失败: ${e.message}`, "error")));
+    $("fetchAuthFilesBtn").addEventListener("click", () => fetchAuthFiles().catch((e) => setStatus(`获取认证文件失败: ${e.message}`, "error")));
+    $("selectAllFilesBtn").addEventListener("click", selectAllFiles);
+    $("clearSelectedFilesBtn").addEventListener("click", clearSelectedFiles);
+    $("recordPageSize").addEventListener("change", () => reloadRecords(true).catch((e) => setStatus(`记录刷新失败: ${e.message}`, "error")));
+    $("recordPrevBtn").addEventListener("click", () => {
+      if (recordPage <= 1) return;
+      recordPage -= 1;
+      reloadRecords().catch((e) => setStatus(`记录刷新失败: ${e.message}`, "error"));
+    });
+    $("recordNextBtn").addEventListener("click", () => {
+      recordPage += 1;
+      reloadRecords().catch((e) => setStatus(`记录刷新失败: ${e.message}`, "error"));
+    });
+    $("reloadFileRecordsBtn").addEventListener("click", () => reloadFileRecords().catch((e) => setStatus(`文件记录刷新失败: ${e.message}`, "error")));
+    $("fileRecordPageSize").addEventListener("change", () => reloadFileRecords(true).catch((e) => setStatus(`文件记录刷新失败: ${e.message}`, "error")));
+    $("fileRecordPrevBtn").addEventListener("click", () => {
+      if (fileRecordPage <= 1) return;
+      fileRecordPage -= 1;
+      reloadFileRecords().catch((e) => setStatus(`文件记录刷新失败: ${e.message}`, "error"));
+    });
+    $("fileRecordNextBtn").addEventListener("click", () => {
+      fileRecordPage += 1;
+      reloadFileRecords().catch((e) => setStatus(`文件记录刷新失败: ${e.message}`, "error"));
+    });
+    $("syncSelectedFilesBtn").addEventListener("click", () => syncSelectedFiles().catch((e) => setStatus(`同步选中文件失败: ${e.message}`, "error")));
+    $("themeMode").addEventListener("change", () => applyTheme($("themeMode").value));
+    $("authFilesTbody").addEventListener("change", (e) => {
+      const el = e.target;
+      if (!el || el.tagName !== "INPUT" || el.type !== "checkbox") return;
+      const syncName = String(el.getAttribute("data-sync-enabled-name") || "").trim();
+      if (syncName) {
+        setFilesSyncEnabled([syncName], el.checked).catch((er) => {
+          el.checked = !el.checked;
+          setStatus(`更新运行同步失败: ${er.message}`, "error");
+        });
+        return;
+      }
+      const name = String(el.getAttribute("data-file-name") || "").trim();
+      if (!name) return;
+      if (el.checked) selectedAuthFiles.add(name);
+      else selectedAuthFiles.delete(name);
+      $("authFilesHint").textContent = `共 ${authFiles.length} 个文件，已选择 ${selectedAuthFiles.size} 个。`;
+    });
+    $("authFilesTbody").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-file-act]");
+      if (!btn) return;
+      const act = String(btn.getAttribute("data-file-act") || "");
+      const name = String(btn.getAttribute("data-file-name") || "").trim();
+      if (!name) return;
+      if (act === "sync") {
+        syncSelectedFiles([name]).catch((er) => setStatus(`同步选中文件失败: ${er.message}`, "error"));
+      }
+    });
+    $("themeLightBtn").addEventListener("click", () => {
+      $("themeMode").value = "light";
+      applyTheme("light");
+    });
+    $("themeDarkBtn").addEventListener("click", () => {
+      $("themeMode").value = "dark";
+      applyTheme("dark");
+    });
+    $("themeAutoBtn").addEventListener("click", () => {
+      $("themeMode").value = "auto";
+      applyTheme("auto");
+    });
+
+    if (window.matchMedia) {
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const onSystemTheme = () => {
+        const mode = (() => { try { return localStorage.getItem(THEME_KEY) || "auto"; } catch (_) { return "auto"; } })();
+        if (mode === "auto") applyTheme("auto");
+      };
+      if (media.addEventListener) media.addEventListener("change", onSystemTheme);
+      else if (media.addListener) media.addListener(onSystemTheme);
+    }
+
+    (async function init() {
+      try {
+        const mode = (() => { try { return localStorage.getItem(THEME_KEY) || "auto"; } catch (_) { return "auto"; } })();
+        applyTheme(mode);
+        await Promise.all([reloadStatus(), reloadRecords(), reloadFileRecords()]);
+        await loadLastAuthFiles();
+        setInterval(() => reloadStatus().catch(() => {}), 5000);
+        setInterval(() => reloadRecords().catch(() => {}), 7000);
+        setInterval(() => reloadFileRecords().catch(() => {}), 9000);
+      } catch (e) {
+        setStatus(`初始化失败: ${e.message}`, "error");
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
+
