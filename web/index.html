@@ -688,6 +688,7 @@
               <th data-key="input_tokens">输入令牌</th>
               <th data-key="output_tokens">输出令牌</th>
               <th data-key="reasoning_tokens">推理令牌</th>
+              <th data-key="cache_hit_tokens">缓存命中</th>
               <th data-key="total_tokens">总令牌</th>
               <th data-key="avg_latency_ms">平均耗时</th>
               <th data-key="max_latency_ms">最小/最大耗时</th>
@@ -737,6 +738,7 @@
               <th data-rec-key="input_tokens">输入令牌</th>
               <th data-rec-key="output_tokens">输出令牌</th>
               <th data-rec-key="reasoning_tokens">推理令牌</th>
+              <th data-rec-key="cache_hit_tokens">缓存命中</th>
               <th data-rec-key="total_tokens">总令牌</th>
               <th data-rec-key="avg_latency_ms">平均耗时</th>
               <th data-rec-key="max_latency_ms">最小/最大耗时</th>
@@ -1156,6 +1158,7 @@
           <td>${compact(r.input_tokens)}</td>
           <td>${compact(r.output_tokens)}</td>
           <td>${compact(r.reasoning_tokens)}</td>
+          <td>${compact(r.cache_hit_tokens || 0)}</td>
           <td><strong>${compact(r.total_tokens)}</strong></td>
           <td>${fmtLatency(r.avg_latency_ms)}</td>
           <td>${fmtLatencyRange(r.min_latency_ms, r.max_latency_ms)}</td>
@@ -1201,6 +1204,7 @@
           <td>${compact(r.input_tokens || 0)}</td>
           <td>${compact(r.output_tokens || 0)}</td>
           <td>${compact(r.reasoning_tokens || 0)}</td>
+          <td>${compact(r.cache_hit_tokens || 0)}</td>
           <td><strong>${compact(r.total_tokens || 0)}</strong></td>
           <td>${fmtLatency(r.avg_latency_ms)}</td>
           <td>${fmtLatencyRange(r.min_latency_ms, r.max_latency_ms)}</td>
@@ -2052,7 +2056,7 @@
       const data = rows.map((r) => ({
         渠道: r.provider, 模型: r.model, 来源账号: r.source, 真实用户: r.user_name || "-",
         请求: r.requests, 成功: r.success, 失败: r.failed, 成功率: `${(r.success_rate * 100).toFixed(2)}%`,
-        输入令牌: r.input_tokens, 输出令牌: r.output_tokens, 推理令牌: r.reasoning_tokens, 总令牌: r.total_tokens,
+        输入令牌: r.input_tokens, 输出令牌: r.output_tokens, 推理令牌: r.reasoning_tokens, 缓存命中: r.cache_hit_tokens || 0, 总令牌: r.total_tokens,
         平均耗时ms: Math.round(r.avg_latency_ms || 0), 最小耗时ms: Math.round(r.min_latency_ms || 0), 最大耗时ms: Math.round(r.max_latency_ms || 0)
       }));
       downloadCsv(`cpa-模型统计-${Date.now()}.csv`, toCsv(data, Object.keys(data[0])));
@@ -2085,6 +2089,7 @@
         输入令牌: r.input_tokens,
         输出令牌: r.output_tokens,
         推理令牌: r.reasoning_tokens,
+        缓存命中: r.cache_hit_tokens || 0,
         总令牌: r.total_tokens,
         平均耗时ms: Math.round(r.avg_latency_ms || 0),
         最小耗时ms: Math.round(r.min_latency_ms || 0),

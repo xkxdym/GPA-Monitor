@@ -63,6 +63,19 @@ def pick_text(*vals, default="-"):
     return default
 
 
+def pick_int(*vals, default=0):
+    for v in vals:
+        if v is None:
+            continue
+        if isinstance(v, str) and not v.strip():
+            continue
+        try:
+            return int(v)
+        except Exception:
+            continue
+    return default
+
+
 def normalize_key_user_map(value):
     if isinstance(value, dict):
         items = value.items()
@@ -312,6 +325,7 @@ def init_db():
               input_tokens INTEGER NOT NULL,
               output_tokens INTEGER NOT NULL,
               reasoning_tokens INTEGER NOT NULL,
+              cache_hit_tokens INTEGER NOT NULL DEFAULT 0,
               total_tokens INTEGER NOT NULL,
               avg_latency_ms REAL NOT NULL,
               min_latency_ms REAL NOT NULL,
@@ -403,6 +417,7 @@ def init_db():
         ensure_column(conn, "usage_records", "profile_name", "TEXT NOT NULL DEFAULT ''")
         ensure_column(conn, "usage_records", "auth_account", "TEXT NOT NULL DEFAULT ''")
         ensure_column(conn, "usage_records", "external_key", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(conn, "usage_records", "cache_hit_tokens", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "pull_snapshots", "profile_id", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "pull_snapshots", "profile_name", "TEXT NOT NULL DEFAULT ''")
         ensure_column(conn, "pull_logs", "profile_id", "INTEGER NOT NULL DEFAULT 0")
@@ -1466,6 +1481,20 @@ def normalize_queue(item):
         tokens.get("output_tokens", tokens.get("completion", item.get("output_tokens", item.get("completion_tokens", item.get("completion", 0))))), 0
     )
     reasoning_tokens = to_int(tokens.get("reasoning_tokens", tokens.get("reasoning", item.get("reasoning_tokens", 0))), 0)
+    token_details = tokens.get("details") if isinstance(tokens.get("details"), dict) else {}
+    prompt_details = item.get("prompt_tokens_details") if isinstance(item.get("prompt_tokens_details"), dict) else {}
+    cache_hit_tokens = pick_int(
+        tokens.get("cache_hit_tokens"),
+        tokens.get("cached_tokens"),
+        token_details.get("cache_hit_tokens"),
+        token_details.get("cached_tokens"),
+        prompt_details.get("cached_tokens"),
+        item.get("cache_hit_tokens"),
+        item.get("cached_tokens"),
+        item.get("cache_hits"),
+        item.get("cache_hit"),
+        default=0,
+    )
     total_tokens = to_int(tokens.get("total_tokens", tokens.get("total", item.get("total_tokens", input_tokens + output_tokens + reasoning_tokens))), 0)
     failed = 1 if item.get("failed", item.get("is_failed", False)) else 0
     lat = to_float(item.get("latency_ms", item.get("latency", 0)), 0.0)
@@ -1504,6 +1533,7 @@ def normalize_queue(item):
         "input_tokens": max(0, input_tokens),
         "output_tokens": max(0, output_tokens),
         "reasoning_tokens": max(0, reasoning_tokens),
+        "cache_hit_tokens": max(0, cache_hit_tokens),
         "total_tokens": max(0, total_tokens),
         "avg_latency_ms": max(0.0, lat),
         "min_latency_ms": max(0.0, lat),
@@ -1518,6 +1548,18 @@ def normalize_usage(item):
     input_tokens = max(0, to_int(item.get("input_tokens", item.get("prompt_tokens", item.get("prompt", 0))), 0))
     output_tokens = max(0, to_int(item.get("output_tokens", item.get("completion_tokens", item.get("completion", 0))), 0))
     reasoning_tokens = max(0, to_int(item.get("reasoning_tokens", 0), 0))
+    prompt_details = item.get("prompt_tokens_details") if isinstance(item.get("prompt_tokens_details"), dict) else {}
+    cache_hit_tokens = max(
+        0,
+        pick_int(
+            item.get("cache_hit_tokens"),
+            item.get("cached_tokens"),
+            prompt_details.get("cached_tokens"),
+            item.get("cache_hits"),
+            item.get("cache_hit"),
+            default=0,
+        ),
+    )
     total_tokens = max(0, to_int(item.get("total_tokens", item.get("total", input_tokens + output_tokens + reasoning_tokens)), 0))
     avg_latency = max(0.0, to_float(item.get("avg_latency_ms", item.get("latency_ms", item.get("latency", 0))), 0.0))
     auth_account = pick_text(
@@ -1555,6 +1597,7 @@ def normalize_usage(item):
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
+        "cache_hit_tokens": cache_hit_tokens,
         "total_tokens": total_tokens,
         "avg_latency_ms": avg_latency,
         "min_latency_ms": max(0.0, to_float(item.get("min_latency_ms", avg_latency), avg_latency)),
@@ -1588,6 +1631,7 @@ def normalize_legacy_payload(payload):
                             "input_tokens": val.get("input_tokens", val.get("prompt_tokens", val.get("input", 0))),
                             "output_tokens": val.get("output_tokens", val.get("completion_tokens", val.get("output", 0))),
                             "reasoning_tokens": val.get("reasoning_tokens", 0),
+                            "cache_hit_tokens": val.get("cache_hit_tokens", val.get("cached_tokens", val.get("cache_hits", val.get("cache_hit", 0)))),
                             "total_tokens": val.get("total_tokens", val.get("total", 0)),
                             "avg_latency_ms": val.get("avg_latency_ms", val.get("latency_ms", 0)),
                             "min_latency_ms": val.get("min_latency_ms", val.get("latency_ms", 0)),
@@ -1616,6 +1660,7 @@ def aggregate_rows(rows):
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "reasoning_tokens": 0,
+                "cache_hit_tokens": 0,
                 "total_tokens": 0,
                 "lat_sum": 0.0,
                 "lat_weight": 0,
@@ -1630,6 +1675,7 @@ def aggregate_rows(rows):
         g["input_tokens"] += max(0, to_int(r["input_tokens"], 0))
         g["output_tokens"] += max(0, to_int(r["output_tokens"], 0))
         g["reasoning_tokens"] += max(0, to_int(r["reasoning_tokens"], 0))
+        g["cache_hit_tokens"] += max(0, to_int(r.get("cache_hit_tokens", 0), 0))
         g["total_tokens"] += max(0, to_int(r["total_tokens"], 0))
         lat = max(0.0, to_float(r["avg_latency_ms"], 0.0))
         if lat > 0:
@@ -1657,6 +1703,7 @@ def aggregate_rows(rows):
                 "input_tokens": g["input_tokens"],
                 "output_tokens": g["output_tokens"],
                 "reasoning_tokens": g["reasoning_tokens"],
+                "cache_hit_tokens": g["cache_hit_tokens"],
                 "total_tokens": g["total_tokens"],
                 "avg_latency_ms": avg_latency,
                 "min_latency_ms": g["min_latency_ms"],
@@ -1678,9 +1725,9 @@ def persist_pull(fetched_at, profile, endpoint, traces, aggregated_rows, ok, mes
                 INSERT INTO usage_records (
                   fetched_at, profile_id, profile_name, provider, model, alias, source, auth_account, external_key,
                   requests, success, failed,
-                  input_tokens, output_tokens, reasoning_tokens, total_tokens,
+                  input_tokens, output_tokens, reasoning_tokens, cache_hit_tokens, total_tokens,
                   avg_latency_ms, min_latency_ms, max_latency_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -1699,6 +1746,7 @@ def persist_pull(fetched_at, profile, endpoint, traces, aggregated_rows, ok, mes
                         r["input_tokens"],
                         r["output_tokens"],
                         r["reasoning_tokens"],
+                        r.get("cache_hit_tokens", 0),
                         r["total_tokens"],
                         r["avg_latency_ms"],
                         r["min_latency_ms"],
@@ -1891,6 +1939,7 @@ def query_stats(hours, keyword, profile_id):
               SUM(input_tokens) AS input_tokens,
               SUM(output_tokens) AS output_tokens,
               SUM(reasoning_tokens) AS reasoning_tokens,
+              SUM(cache_hit_tokens) AS cache_hit_tokens,
               SUM(total_tokens) AS total_tokens,
               SUM(CASE WHEN avg_latency_ms > 0 THEN avg_latency_ms * requests ELSE 0 END) AS lat_sum,
               SUM(CASE WHEN avg_latency_ms > 0 THEN requests ELSE 0 END) AS lat_weight,
@@ -1925,6 +1974,7 @@ def query_stats(hours, keyword, profile_id):
                 "input_tokens": to_int(r["input_tokens"], 0),
                 "output_tokens": to_int(r["output_tokens"], 0),
                 "reasoning_tokens": to_int(r["reasoning_tokens"], 0),
+                "cache_hit_tokens": to_int(r["cache_hit_tokens"], 0),
                 "total_tokens": to_int(r["total_tokens"], 0),
                 "lat_sum": avg_latency * req if avg_latency > 0 else 0.0,
                 "lat_weight": req if avg_latency > 0 else 0,
@@ -1948,6 +1998,7 @@ def query_stats(hours, keyword, profile_id):
                         "input_tokens": 0,
                         "output_tokens": 0,
                         "reasoning_tokens": 0,
+                        "cache_hit_tokens": 0,
                         "total_tokens": 0,
                         "lat_sum": 0.0,
                         "lat_weight": 0,
@@ -1955,7 +2006,7 @@ def query_stats(hours, keyword, profile_id):
                         "max_latency_ms": 0.0,
                     }
                 g = grouped[key]
-                for k in ("requests", "success", "failed", "input_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "lat_weight"):
+                for k in ("requests", "success", "failed", "input_tokens", "output_tokens", "reasoning_tokens", "cache_hit_tokens", "total_tokens", "lat_weight"):
                     g[k] += item[k]
                 g["lat_sum"] += item["lat_sum"]
                 min_lat = to_float(item["min_latency_ms"], 0.0)
@@ -1982,6 +2033,7 @@ def query_stats(hours, keyword, profile_id):
             "input_tokens": sum(x["input_tokens"] for x in out),
             "output_tokens": sum(x["output_tokens"] for x in out),
             "reasoning_tokens": sum(x["reasoning_tokens"] for x in out),
+            "cache_hit_tokens": sum(x["cache_hit_tokens"] for x in out),
             "total_tokens": sum(x["total_tokens"] for x in out),
             "avg_latency_ms": 0.0,
             "success_rate": 0.0,
@@ -2108,7 +2160,7 @@ def query_records(hours, profile_id, keyword, limit):
               id, fetched_at, profile_id, profile_name,
               provider, model, alias, source, auth_account, external_key,
               requests, success, failed,
-              input_tokens, output_tokens, reasoning_tokens, total_tokens,
+              input_tokens, output_tokens, reasoning_tokens, cache_hit_tokens, total_tokens,
               avg_latency_ms, min_latency_ms, max_latency_ms
             FROM usage_records
             {where}
