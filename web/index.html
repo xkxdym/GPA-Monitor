@@ -381,7 +381,9 @@
     .quota-list {
       border: 1px solid var(--line);
       border-radius: 12px;
-      overflow: hidden;
+      max-height: min(520px, 48vh);
+      overflow-x: hidden;
+      overflow-y: auto;
       background: linear-gradient(180deg, var(--panel) 0%, var(--chart-canvas-bg) 100%);
     }
     .quota-row {
