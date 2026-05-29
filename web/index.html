@@ -90,14 +90,11 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background:
-        radial-gradient(1200px 500px at 8% -10%, var(--bg-orb-a), transparent 62%),
-        radial-gradient(1000px 420px at 92% -16%, var(--bg-orb-b), transparent 60%),
-        linear-gradient(180deg, var(--bg-top) 0, var(--bg) 220px);
+      background: linear-gradient(180deg, var(--bg-top) 0, var(--bg) 220px);
       color: var(--text);
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
-    .wrap { max-width: 1360px; margin: 22px auto 40px; padding: 0 16px; }
+    .wrap { max-width: 1440px; margin: 22px auto 40px; padding: 0 16px; }
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -237,6 +234,53 @@
       padding: 0 8px;
       font-size: 12px;
     }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin: 18px 0 10px;
+      flex-wrap: wrap;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.3;
+    }
+    .section-desc {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .dashboard-section { margin-bottom: 14px; }
+    .stats-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.7fr) minmax(0, 2.3fr);
+      gap: 14px;
+      align-items: end;
+    }
+    .toolbar-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .toolbar-fields {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .toolbar-fields .field { grid-column: auto; }
+    .toolbar-actions {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .toolbar-actions .actions { margin-top: 0; }
+    .toolbar-actions .status { flex: 1 1 260px; margin-top: 0; }
     .countdown {
       margin-top: 8px;
       border: 1px solid var(--line);
@@ -260,17 +304,60 @@
     }
     .kpis {
       display: grid;
-      grid-template-columns: repeat(6, minmax(120px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 14px;
     }
     .kpi {
       border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--pill-bg);
-      padding: 10px;
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     }
-    .kpi .t { color: var(--muted); font-size: 12px; }
-    .kpi .v { margin-top: 6px; font-size: 20px; font-weight: 700; }
+    .kpi-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 15px;
+      font-weight: 900;
+    }
+    .kpi-blue { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
+    .kpi-green { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+    .kpi-amber { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+    .kpi-violet { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+    .kpi-rose { background: rgba(225, 29, 72, 0.12); color: #e11d48; }
+    .kpi-cyan { background: rgba(8, 145, 178, 0.12); color: #0891b2; }
+    .kpi-body { min-width: 0; flex: 1; }
+    .kpi .t {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .kpi .v {
+      margin-top: 3px;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .kpi .s {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .good { color: var(--good); }
     .bad { color: var(--bad); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -278,29 +365,36 @@
       width: 100%;
       height: 280px;
       display: block;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: linear-gradient(180deg, var(--panel) 0%, var(--chart-canvas-bg) 100%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
     }
     .chart-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 14px;
     }
     .chart-box {
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 12px;
       background: linear-gradient(180deg, var(--panel) 0%, var(--chart-canvas-bg) 100%);
-      padding: 8px;
+      padding: 14px;
+      min-width: 0;
     }
-    .health-box { position: relative; }
+    .chart-box.full { grid-column: 1 / -1; }
     .chart-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 10px;
+    }
+    .chart-title {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .chart-subtitle {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
     }
     .chart-controls {
       display: flex;
@@ -339,22 +433,8 @@
       accent-color: var(--accent);
       margin: 0;
     }
-    .health-tip {
-      position: absolute;
-      z-index: 6;
-      pointer-events: none;
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid var(--line-strong);
-      background: var(--panel);
-      color: var(--text);
-      box-shadow: var(--card-shadow);
-      font-size: 12px;
-      line-height: 1.35;
-      white-space: nowrap;
-      display: none;
-    }
     .chart-box canvas { width: 100%; height: 260px; display: block; }
+    .chart-box .table-wrap { max-height: 260px; }
     .sub-actions {
       display: flex;
       align-items: center;
@@ -378,6 +458,14 @@
       flex-wrap: wrap;
     }
     .quota-head-right { text-align: right; }
+    .quota-summary {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .quota-summary .quota-tag { margin-right: 0; }
     .quota-list {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -388,7 +476,7 @@
     }
     .quota-row {
       display: grid;
-      grid-template-columns: 1.1fr 1.4fr;
+      grid-template-columns: 1.05fr 1.25fr 1.05fr;
       gap: 12px;
       align-items: center;
       padding: 12px 14px;
@@ -418,6 +506,57 @@
       display: grid;
       gap: 8px;
     }
+    .quota-calls {
+      display: grid;
+      gap: 8px;
+      align-self: stretch;
+    }
+    .quota-calls-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .quota-calls-strip {
+      display: grid;
+      grid-template-columns: repeat(60, minmax(4px, 1fr));
+      gap: 2px;
+      align-items: center;
+      min-height: 18px;
+    }
+    .quota-call {
+      width: 100%;
+      height: 18px;
+      border-radius: 4px;
+      background: var(--line);
+    }
+    .quota-call.success { background: linear-gradient(180deg, #34d399 0%, #16a34a 100%); }
+    .quota-call.fail { background: linear-gradient(180deg, #f87171 0%, #dc2626 100%); }
+    .quota-call.empty { background: var(--line); opacity: 0.45; }
+    .quota-call-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .quota-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .quota-dot::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .quota-dot.success::before { background: #16a34a; }
+    .quota-dot.fail::before { background: #dc2626; }
     .quota-metric-head {
       display: flex;
       justify-content: space-between;
@@ -503,11 +642,23 @@
       .kpis { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
       .row { grid-template-columns: 1fr; }
       .chart-grid { grid-template-columns: 1fr; }
+      .stats-toolbar { grid-template-columns: 1fr; }
+      .toolbar-fields { grid-template-columns: 1fr; }
+      .toolbar-actions { align-items: flex-start; }
       .chart-select { max-width: 100%; min-width: 0; }
       .chart-controls { justify-content: flex-start; width: 100%; }
       .chart-select.sm { min-width: 0; }
       .quota-row { grid-template-columns: 1fr; }
       .top-actions { justify-content: flex-start; }
+    }
+    @media (min-width: 1180px) {
+      .kpis { grid-template-columns: repeat(6, minmax(150px, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .kpis { grid-template-columns: 1fr; }
+      .kpi .v { font-size: 20px; }
+      .toolbar-actions .actions { width: 100%; }
+      .toolbar-actions .actions button { flex: 1 1 140px; }
     }
   </style>
 </head>
@@ -546,55 +697,105 @@
     </div>
 
     <div class="card">
-      <div class="grid">
-        <div class="field sm"><label>统计窗口（小时）</label><input id="hours" type="number" min="1" max="2160" value="24" /></div>
-        <div class="field sm"><label>过滤关键词</label><input id="keyword" placeholder="渠道/模型/来源/用户" /></div>
-        <div class="field sm"><label>趋势指标</label><select id="metric"><option value="requests">总请求</option><option value="tokens">总令牌</option><option value="success_rate">成功率(%)</option><option value="latency">平均耗时(ms)</option></select></div>
-        <div class="field sm"><label>趋势点数</label><input id="trendLimit" type="number" min="10" max="5000" value="200" /></div>
+      <div class="stats-toolbar">
+        <div>
+          <div class="toolbar-title">统计筛选</div>
+          <div class="small">按窗口、关键词和趋势指标刷新当前仪表盘</div>
+        </div>
+        <div class="toolbar-fields">
+          <div class="field"><label>统计窗口（小时）</label><input id="hours" type="number" min="1" max="2160" value="24" /></div>
+          <div class="field"><label>过滤关键词</label><input id="keyword" placeholder="渠道/模型/来源/用户" /></div>
+          <div class="field"><label>趋势指标</label><select id="metric"><option value="requests">总请求</option><option value="tokens">总令牌</option><option value="success_rate">成功率(%)</option><option value="latency">平均耗时(ms)</option></select></div>
+          <div class="field"><label>趋势点数</label><input id="trendLimit" type="number" min="10" max="5000" value="200" /></div>
+        </div>
       </div>
-      <div class="actions">
-        <button id="refreshBtn" class="btn-ghost">立即拉取后端</button>
-        <button id="reloadViewBtn" class="btn-primary">刷新视图</button>
-        <button id="exportStatsBtn" class="btn-ghost">导出模型统计CSV</button>
-        <button id="exportRecordsBtn" class="btn-ghost">导出调用明细CSV</button>
+      <div class="toolbar-actions">
+        <div class="status" id="status"></div>
+        <div class="actions">
+          <button id="refreshBtn" class="btn-ghost">立即拉取后端</button>
+          <button id="reloadViewBtn" class="btn-primary">刷新视图</button>
+          <button id="exportStatsBtn" class="btn-ghost">导出模型统计CSV</button>
+          <button id="exportRecordsBtn" class="btn-ghost">导出调用明细CSV</button>
+        </div>
       </div>
-      <div class="status" id="status"></div>
     </div>
 
-    <div class="card">
+    <section class="dashboard-section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">核心指标</h2>
+          <div class="section-desc">当前统计窗口内的模型、请求、令牌和响应情况</div>
+        </div>
+      </div>
       <div class="kpis">
-        <div class="kpi"><div class="t">模型组</div><div class="v" id="kpiModels">0</div></div>
-        <div class="kpi"><div class="t">总请求</div><div class="v" id="kpiReq">0</div></div>
-        <div class="kpi"><div class="t">成功率</div><div class="v good" id="kpiSucc">0%</div></div>
-        <div class="kpi"><div class="t">总令牌</div><div class="v" id="kpiTok">0</div></div>
-        <div class="kpi"><div class="t">平均耗时</div><div class="v" id="kpiLat">0ms</div></div>
-        <div class="kpi"><div class="t">失败数</div><div class="v bad" id="kpiFail">0</div></div>
+        <div class="kpi">
+          <span class="kpi-icon kpi-blue">M</span>
+          <div class="kpi-body"><div class="t">模型组</div><div class="v" id="kpiModels">0</div><div class="s">当前窗口命中模型</div></div>
+        </div>
+        <div class="kpi">
+          <span class="kpi-icon kpi-cyan">R</span>
+          <div class="kpi-body"><div class="t">总请求</div><div class="v" id="kpiReq">0</div><div class="s">当前窗口请求量</div></div>
+        </div>
+        <div class="kpi">
+          <span class="kpi-icon kpi-green">%</span>
+          <div class="kpi-body"><div class="t">成功率</div><div class="v good" id="kpiSucc">0%</div><div class="s" id="kpiSuccSub">成功 0 / 失败 0</div></div>
+        </div>
+        <div class="kpi">
+          <span class="kpi-icon kpi-amber">T</span>
+          <div class="kpi-body"><div class="t">总令牌</div><div class="v" id="kpiTok">0</div><div class="s" id="kpiTokSub">输入 0 / 输出 0</div></div>
+        </div>
+        <div class="kpi">
+          <span class="kpi-icon kpi-violet">L</span>
+          <div class="kpi-body"><div class="t">平均耗时</div><div class="v" id="kpiLat">0ms</div><div class="s">平均响应时间</div></div>
+        </div>
+        <div class="kpi">
+          <span class="kpi-icon kpi-rose">!</span>
+          <div class="kpi-body"><div class="t">失败数</div><div class="v bad" id="kpiFail">0</div><div class="s">失败请求总数</div></div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card"><canvas id="trendCanvas"></canvas></div>
+    <section class="dashboard-section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">趋势总览</h2>
+          <div class="section-desc">按当前筛选条件展示请求、令牌、成功率或平均耗时趋势</div>
+        </div>
+      </div>
+      <div class="chart-box full"><canvas id="trendCanvas"></canvas></div>
+    </section>
 
-    <div class="card">
+    <section class="dashboard-section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">分布分析</h2>
+          <div class="section-desc">渠道、模型和用户维度的分布分析</div>
+        </div>
+      </div>
       <div class="chart-grid">
         <div class="chart-box">
-          <div class="small" style="margin-bottom:6px;">渠道总令牌占比</div>
+          <div class="chart-title">渠道总令牌占比</div>
+          <div class="chart-subtitle">按渠道聚合总令牌</div>
           <canvas id="providerPieCanvas"></canvas>
         </div>
         <div class="chart-box">
-          <div class="small" style="margin-bottom:6px;">Top模型请求量</div>
+          <div class="chart-title">Top模型请求量</div>
+          <div class="chart-subtitle">按请求量排序的模型排行</div>
           <canvas id="modelBarCanvas"></canvas>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card">
+    <section class="dashboard-section">
       <div class="chart-grid">
         <div class="chart-box">
-          <div class="small" style="margin-bottom:6px;">真实用户令牌占比</div>
+          <div class="chart-title">真实用户令牌占比</div>
+          <div class="chart-subtitle">按真实用户聚合总令牌</div>
           <canvas id="userTokenPieCanvas"></canvas>
         </div>
         <div class="chart-box">
-          <div class="small" style="margin-bottom:6px;">真实用户令牌使用量</div>
+          <div class="chart-title">真实用户令牌使用量</div>
+          <div class="chart-subtitle">Top 12 用户明细</div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -611,61 +812,43 @@
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card">
+    <section class="dashboard-section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">稳定性监控</h2>
+          <div class="section-desc">成功失败走势、小时热力图和来源账号健康度</div>
+        </div>
+      </div>
       <div class="chart-grid">
         <div class="chart-box">
-          <div class="small" style="margin-bottom:6px;">成功/失败堆叠趋势</div>
+          <div class="chart-title">成功/失败堆叠趋势</div>
+          <div class="chart-subtitle">按时间展示请求结果构成</div>
           <canvas id="successFailCanvas"></canvas>
         </div>
         <div class="chart-box">
-          <div class="small" style="margin-bottom:6px;">近24小时请求热力图</div>
+          <div class="chart-title">近24小时请求热力图</div>
+          <div class="chart-subtitle">CST 小时维度请求密度</div>
           <canvas id="hourlyHeatCanvas"></canvas>
         </div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="chart-box health-box">
-        <div class="chart-head">
-          <div class="small">来源账号健康度监控</div>
-          <div class="chart-controls">
-            <select id="healthGranularity" class="chart-select sm" title="健康度时间粒度">
-              <option value="15">15分钟</option>
-              <option value="60" selected>1小时</option>
-              <option value="360">6小时</option>
-            </select>
-            <select id="healthFailThreshold" class="chart-select sm" title="失败率告警阈值">
-              <option value="0.01">失败>1%</option>
-              <option value="0.03">失败>3%</option>
-              <option value="0.05" selected>失败>5%</option>
-              <option value="0.10">失败>10%</option>
-            </select>
-            <label class="chart-toggle" title="只显示触发失败阈值的时间点">
-              <input type="checkbox" id="healthAlertsOnly" />
-              仅看告警点
-            </label>
-            <select id="healthSourceSelect" class="chart-select" title="健康度监控来源账号">
-              <option value="__auto__">自动（请求最高）</option>
-            </select>
-          </div>
-        </div>
-        <canvas id="sourceResultCanvas"></canvas>
-        <div id="healthTooltip" class="health-tip"></div>
-      </div>
-    </div>
+    </section>
 
     <div class="card">
       <div class="quota-head">
         <div>
           <div class="small">AUTH FILES</div>
           <h1 style="font-size:20px;">授权文件总量监控</h1>
-          <div class="small">按授权账号统计当前窗口总请求、总令牌与失败情况</div>
+          <div class="small">按授权账号统计当前窗口总请求、总令牌、失败情况与最近 60 次调用状态</div>
         </div>
         <div class="quota-head-right">
           <div class="small">统计窗口：<span id="authTotalWindow">-</span></div>
           <div class="small">授权文件：<span id="authTotalCount">0</span></div>
+          <div class="quota-summary">
+            <span class="quota-tag">窗口成功率 <span id="authWindowSuccessRate">0.0%</span></span>
+            <span class="quota-tag">最近60次成功率 <span id="authRecentSuccessRate">0.0%</span></span>
+          </div>
         </div>
       </div>
       <div id="authQuotaList" class="quota-list">
@@ -795,7 +978,6 @@
       second: "2-digit"
     });
     const THEME_KEY = "cpa_theme_mode_v1";
-    const AUTO_HEALTH_SOURCE = "__auto__";
     let THEME = null;
     const $ = (id) => document.getElementById(id);
     const VIEW_KEY = "cpa_monitor_view_v2";
@@ -813,11 +995,6 @@
       sortRecords: { key: "fetched_at", dir: "desc" },
       statsPage: 1,
       recordsPage: 1,
-      healthSource: AUTO_HEALTH_SOURCE,
-      healthGranularityMin: 60,
-      healthFailThreshold: 0.05,
-      healthAlertsOnly: false,
-      healthBars: [],
       recordLink: null,
       authQuotaRows: [],
       userTokenRows: [],
@@ -936,7 +1113,6 @@
         drawModelTopBar(state.statsRows);
         renderUserTokenStats();
         drawUserTokenPie(state.userTokenRows);
-        drawSourceResultMonitor();
       }
       if (state.trendPoints.length) {
         drawTrend(state.trendPoints);
@@ -969,11 +1145,7 @@
         metric: $("metric").value,
         trendLimit: $("trendLimit").value,
         statsPageSize: $("statsPageSize").value,
-        recordsPageSize: $("recordsPageSize").value,
-        healthGranularity: $("healthGranularity").value,
-        healthFailThreshold: $("healthFailThreshold").value,
-        healthAlertsOnly: $("healthAlertsOnly").checked ? 1 : 0,
-        healthSource: state.healthSource
+        recordsPageSize: $("recordsPageSize").value
       }));
     }
 
@@ -986,46 +1158,7 @@
         if (v.trendLimit) $("trendLimit").value = v.trendLimit;
         if (v.statsPageSize) $("statsPageSize").value = v.statsPageSize;
         if (v.recordsPageSize) $("recordsPageSize").value = v.recordsPageSize;
-        if (v.healthGranularity) {
-          const gv = String(v.healthGranularity);
-          $("healthGranularity").value = gv;
-          state.healthGranularityMin = Math.max(1, num(gv || 60));
-        }
-        if (v.healthFailThreshold) {
-          const tv = String(v.healthFailThreshold);
-          $("healthFailThreshold").value = tv;
-          state.healthFailThreshold = Math.max(0.001, Math.min(0.5, num(tv || 0.05)));
-        }
-        if (v.healthAlertsOnly !== undefined) {
-          state.healthAlertsOnly = String(v.healthAlertsOnly) === "1" || v.healthAlertsOnly === true;
-          $("healthAlertsOnly").checked = state.healthAlertsOnly;
-        }
-        if (v.healthSource) state.healthSource = String(v.healthSource);
       } catch (_) {}
-    }
-
-    function hideHealthTooltip() {
-      const tip = $("healthTooltip");
-      if (!tip) return;
-      tip.style.display = "none";
-    }
-
-    function showHealthTooltip(evt, bar) {
-      const tip = $("healthTooltip");
-      const canvas = $("sourceResultCanvas");
-      if (!tip || !canvas || !bar) return;
-      const req = Math.max(0, num(bar.data.requests || 0));
-      const succ = Math.max(0, num(bar.data.success || 0));
-      const fail = Math.max(0, num(bar.data.failed || 0));
-      const failRate = req ? (fail / req) : 0;
-      const at = formatChinaDateTime(bar.data.bucketAt);
-      tip.textContent = `${bar.source || "-"} | ${at} | 请求 ${compact(req)} | 成功 ${compact(succ)} | 失败 ${compact(fail)} | 失败率 ${(failRate * 100).toFixed(2)}%`;
-      tip.style.display = "block";
-      const x = Math.min(canvas.clientWidth - 10, Math.max(10, evt.offsetX + 12));
-      const y = Math.max(8, evt.offsetY - 28);
-      tip.style.left = `${x}px`;
-      tip.style.top = `${y}px`;
-      tip.style.transform = x > canvas.clientWidth * 0.72 ? "translateX(-100%)" : "translateX(0)";
     }
 
     function paginateRows(rows, page, pageSize) {
@@ -1142,6 +1275,8 @@
       $("kpiTok").textContent = compact(summary.total_tokens || 0);
       $("kpiLat").textContent = fmtLatency(summary.avg_latency_ms || 0);
       $("kpiFail").textContent = compact(summary.failed || 0);
+      $("kpiSuccSub").textContent = `成功 ${compact(summary.success || 0)} / 失败 ${compact(summary.failed || 0)}`;
+      $("kpiTokSub").textContent = `输入 ${compact(summary.input_tokens || 0)} / 输出 ${compact(summary.output_tokens || 0)}`;
 
       const sorted = sortRows(state.statsRows, state.sortStats);
       const pg = paginateRows(sorted, state.statsPage, $("statsPageSize").value);
@@ -1269,6 +1404,48 @@
         .sort((a, b) => (num(b.totalTokens) - num(a.totalTokens)) || (num(b.requests) - num(a.requests)));
     }
 
+    function quotaRowKey(row) {
+      const auth = String(row?.auth_account || "").trim();
+      const source = String(row?.source || "-").trim();
+      return auth || source || "-";
+    }
+
+    function buildRecentQuotaCalls(records, key, maxCount = 60) {
+      const ordered = [...(records || [])]
+        .filter((r) => !key || quotaRowKey(r) === key)
+        .sort((a, b) => {
+          const ta = parseDateSafe(a.fetched_at)?.getTime() || 0;
+          const tb = parseDateSafe(b.fetched_at)?.getTime() || 0;
+          if (tb !== ta) return tb - ta;
+          return num(b.id || 0) - num(a.id || 0);
+        });
+      const calls = [];
+      for (const r of ordered) {
+        const requests = Math.max(0, num(r.requests || 0));
+        let failed = Math.max(0, num(r.failed || 0));
+        let success = Math.max(0, num(r.success || 0));
+        const total = success + failed;
+        if (total < requests) {
+          success += requests - total;
+        } else if (total > requests) {
+          const overflow = total - requests;
+          if (failed >= overflow) failed -= overflow;
+          else {
+            success = Math.max(0, success - (overflow - failed));
+            failed = 0;
+          }
+        }
+        for (let i = 0; i < success && calls.length < maxCount; i++) {
+          calls.push({ ok: true, at: r.fetched_at, source: r.source || r.auth_account || key });
+        }
+        for (let i = 0; i < failed && calls.length < maxCount; i++) {
+          calls.push({ ok: false, at: r.fetched_at, source: r.source || r.auth_account || key });
+        }
+        if (calls.length >= maxCount) break;
+      }
+      return calls.slice(0, maxCount);
+    }
+
     function renderUserTokenStats() {
       const body = $("userTokenTbody");
       if (!body) return;
@@ -1300,18 +1477,49 @@
       }
       if (!rows.length) {
         list.innerHTML = `<div class="small" style="padding:12px 14px;">暂无授权总量数据</div>`;
+        const emptyRate = "0.0%";
+        const wsr = $("authWindowSuccessRate");
+        const rsr = $("authRecentSuccessRate");
+        if (wsr) wsr.textContent = emptyRate;
+        if (rsr) rsr.textContent = emptyRate;
         return;
       }
       const totalReq = Math.max(1, rows.reduce((s, r) => s + num(r.requests || 0), 0));
       const totalTok = Math.max(1, rows.reduce((s, r) => s + num(r.totalTokens || 0), 0));
-      list.innerHTML = rows.map((r) => {
+      const totalSucc = rows.reduce((s, r) => s + Math.max(0, num(r.requests || 0) - Math.max(0, num(r.failed || 0))), 0);
+      const windowRate = totalReq > 0 ? (totalSucc / totalReq) : 0;
+      const overallRecentCalls = buildRecentQuotaCalls(state.recordRows || [], "", 60);
+      const recentSucc = overallRecentCalls.filter((c) => c.ok).length;
+      const recentTotal = overallRecentCalls.length;
+      const rendered = rows.map((r) => {
+        const recentCalls = buildRecentQuotaCalls(state.recordRows || [], r.key, 60);
+        const recentSuccessCount = recentCalls.filter((c) => c.ok).length;
+        const recentFailCount = recentCalls.length - recentSuccessCount;
+        return {
+          ...r,
+          recentCalls,
+          recentSuccessCount,
+          recentFailCount,
+          recentSuccessRate: recentCalls.length ? (recentSuccessCount / recentCalls.length) : 0
+        };
+      });
+      const recentRate = recentTotal > 0 ? (recentSucc / recentTotal) : 0;
+      const windowRateEl = $("authWindowSuccessRate");
+      const recentRateEl = $("authRecentSuccessRate");
+      if (windowRateEl) windowRateEl.textContent = `${(windowRate * 100).toFixed(1)}%`;
+      if (recentRateEl) recentRateEl.textContent = `${(recentRate * 100).toFixed(1)}%`;
+      list.innerHTML = rendered.map((r) => {
         const reqShare = num(r.requests || 0) / totalReq;
         const tokShare = num(r.totalTokens || 0) / totalTok;
-        const c5 = quotaClass(1 - num(r.successRate || 0));
-        const c7 = quotaClass(1 - num(r.successRate || 0));
+        const recentCalls = r.recentCalls || [];
+        const c5 = "";
+        const c7 = "";
         const n5 = Math.min(100, reqShare * 100);
         const n7 = Math.min(100, tokShare * 100);
         const authTag = r.auth ? "授权账号" : "来源账号";
+        const recentOk = r.recentSuccessCount || 0;
+        const recentFail = r.recentFailCount || 0;
+        const recentRateText = `${(num(r.recentSuccessRate || 0) * 100).toFixed(1)}%`;
         return `
           <div class="quota-row">
             <div>
@@ -1321,7 +1529,7 @@
                 <span class="quota-tag">来源${compact(r.sourceCount || 0, 0)}个</span>
                 <span class="quota-tag">Key${compact(r.keyCount || 0, 0)}个</span>
                 <span class="quota-tag">失败 ${compact(r.failed || 0, 0)}</span>
-                <span class="quota-tag">成功率 ${((num(r.successRate) || 0) * 100).toFixed(1)}%</span>
+                <span class="quota-tag">窗口成功率 ${((num(r.requests || 0) > 0 ? (num(r.requests || 0) - Math.max(0, num(r.failed || 0))) / num(r.requests || 0) : 0) * 100).toFixed(1)}%</span>
               </div>
             </div>
             <div class="quota-metrics">
@@ -1338,6 +1546,24 @@
                   <span>${compact(r.totalTokens || 0)} / ${compact(totalTok)} (${(tokShare * 100).toFixed(1)}%)</span>
                 </div>
                 <div class="quota-track"><div class="quota-fill ${c7}" style="width:${n7.toFixed(2)}%"></div></div>
+              </div>
+            </div>
+            <div class="quota-calls">
+              <div class="quota-calls-head">
+                <span>最近 60 次调用</span>
+                <span>${compact(recentOk, 0)} 成功 / ${compact(recentFail, 0)} 失败 / ${recentRateText}</span>
+              </div>
+              <div class="quota-calls-strip" title="绿色=成功，红色=失败">
+                ${Array.from({ length: 60 }, (_, idx) => {
+                  const call = recentCalls[idx];
+                  if (!call) return '<span class="quota-call empty"></span>';
+                  return `<span class="quota-call ${call.ok ? 'success' : 'fail'}" title="${esc(call.ok ? '成功' : '失败')} | ${esc(formatChinaDateTime(call.at))} | ${esc(call.source || r.key)}"></span>`;
+                }).join("")}
+              </div>
+              <div class="quota-call-legend">
+                <span class="quota-dot success">成功</span>
+                <span class="quota-dot fail">失败</span>
+                <span>最近 60 次已截取</span>
               </div>
             </div>
           </div>
@@ -1616,242 +1842,6 @@
       });
     }
 
-    function refreshHealthSourceOptions() {
-      const sel = $("healthSourceSelect");
-      if (!sel) return;
-      const srcAgg = new Map();
-      for (const r of state.statsRows || []) {
-        const source = String(r.source || r.auth_account || "-");
-        const req = Math.max(0, num(r.requests || 0));
-        srcAgg.set(source, (srcAgg.get(source) || 0) + req);
-      }
-      const ranked = [...srcAgg.entries()].sort((a, b) => b[1] - a[1]);
-      const existing = state.healthSource || AUTO_HEALTH_SOURCE;
-      const hasExisting = ranked.some((it) => it[0] === existing);
-      const options = [`<option value="${AUTO_HEALTH_SOURCE}">自动（请求最高）</option>`];
-      if (existing !== AUTO_HEALTH_SOURCE && !hasExisting) {
-        options.push(`<option value="${esc(existing)}">${esc(existing)}（无数据）</option>`);
-      }
-      for (const [name, req] of ranked) {
-        options.push(`<option value="${esc(name)}">${esc(name)}（${compact(req)} 请求）</option>`);
-      }
-      sel.innerHTML = options.join("");
-      state.healthSource = existing;
-      if (!hasExisting && existing !== AUTO_HEALTH_SOURCE) state.healthSource = AUTO_HEALTH_SOURCE;
-      sel.value = state.healthSource;
-    }
-
-    function buildHealthSeries(sourceName, granularityMin) {
-      const recs = state.recordRows || [];
-      const bucketMs = Math.max(1, num(granularityMin || 60)) * 60 * 1000;
-      const map = new Map();
-      for (const r of recs) {
-        const source = String(r.source || r.auth_account || "-");
-        if (source !== sourceName) continue;
-        const d = parseDateSafe(r.fetched_at);
-        if (!d) continue;
-        const t = d.getTime();
-        const bucketAt = Math.floor(t / bucketMs) * bucketMs;
-        if (!map.has(bucketAt)) map.set(bucketAt, { bucketAt, requests: 0, success: 0, failed: 0 });
-        const item = map.get(bucketAt);
-        item.requests += Math.max(0, num(r.requests || 0));
-        item.success += Math.max(0, num(r.success || 0));
-        item.failed += Math.max(0, num(r.failed || 0));
-      }
-      return [...map.values()].sort((a, b) => a.bucketAt - b.bucketAt);
-    }
-
-    function drawSourceResultMonitor() {
-      const { ctx, w, h } = setupCanvas("sourceResultCanvas", 120);
-      hideHealthTooltip();
-      const stats = state.statsRows || [];
-      const granularityMin = Math.max(1, num(state.healthGranularityMin || 60));
-      const failThreshold = Math.max(0.001, Math.min(0.5, num(state.healthFailThreshold || 0.05)));
-      const successThreshold = 1 - failThreshold;
-      const criticalFailThreshold = Math.max(failThreshold + 0.02, Math.min(0.5, failThreshold * 2));
-      const criticalSuccessThreshold = 1 - criticalFailThreshold;
-      const srcAgg = new Map();
-      for (const r of stats) {
-        const source = String(r.source || r.auth_account || "-");
-        const req = Math.max(0, num(r.requests || 0));
-        const succ = Math.max(0, num(r.success || 0));
-        const fail = Math.max(0, num(r.failed || 0));
-        if (!srcAgg.has(source)) srcAgg.set(source, { source, req: 0, succ: 0, fail: 0 });
-        const cur = srcAgg.get(source);
-        cur.req += req;
-        cur.succ += succ;
-        cur.fail += fail;
-      }
-      const selected = state.healthSource || AUTO_HEALTH_SOURCE;
-      const top = [...srcAgg.values()].sort((a, b) => b.req - a.req)[0];
-      const target = selected !== AUTO_HEALTH_SOURCE ? srcAgg.get(selected) : top;
-      const sourceName = target ? target.source : (selected !== AUTO_HEALTH_SOURCE ? selected : "-");
-      const points = buildHealthSeries(sourceName, granularityMin).slice(-72);
-      state.healthBars = [];
-      if (!points.length) {
-        ctx.fillStyle = THEME.muted;
-        ctx.font = "13px Segoe UI";
-        ctx.fillText(`暂无来源账号健康数据（${granularityMin}分钟粒度）`, 16, 26);
-        return;
-      }
-
-      const overallReq = target ? Math.max(1, num(target.req || 0)) : Math.max(1, points.reduce((s, x) => s + num(x.requests || 0), 0));
-      const overallSucc = target ? num(target.succ || 0) : points.reduce((s, x) => s + num(x.success || 0), 0);
-      const overallFail = target ? num(target.fail || 0) : points.reduce((s, x) => s + num(x.failed || 0), 0);
-      const overallRate = Math.max(0, Math.min(1, overallSucc / overallReq));
-      const score = `${(overallRate * 100).toFixed(2)}%`;
-
-      const leftW = Math.max(150, Math.min(280, w * 0.28));
-      const gap = 2;
-      const stripLeft = leftW + 14;
-      const stripRight = 14;
-      const stripTop = 26;
-      const stripH = 48;
-      const stripW = Math.max(90, w - stripLeft - stripRight);
-      const maxBars = Math.max(14, Math.floor(stripW / 5));
-      const sampled = points.length <= maxBars
-        ? points
-        : Array.from({ length: maxBars }, (_, i) => points[Math.floor(i * (points.length - 1) / (maxBars - 1))]);
-      let series = sampled;
-      if (state.healthAlertsOnly) {
-        series = sampled.filter((p) => {
-          const req = Math.max(1, num(p.requests || 0));
-          return Math.max(0, num(p.failed || 0)) / req > failThreshold;
-        });
-      }
-      if (!series.length) {
-        ctx.fillStyle = THEME.muted;
-        ctx.font = "13px Segoe UI";
-        ctx.fillText(`当前阈值下无告警点（失败>${Math.round(failThreshold * 100)}%）`, 16, 26);
-        return;
-      }
-      const n = series.length;
-      const barW = Math.max(3, Math.floor((stripW - (n - 1) * gap) / n));
-
-      const bg = ctx.createLinearGradient(0, 0, 0, h);
-      bg.addColorStop(0, `${THEME.line}55`);
-      bg.addColorStop(1, `${THEME.line}22`);
-      ctx.fillStyle = bg;
-      roundRect(ctx, 0, 0, w, h, 12);
-      ctx.fill();
-
-      const badgeW = 68;
-      const badgeH = 28;
-      const badgeY = 14;
-      const badgeColor = overallRate >= 0.9 ? "#22c55e" : overallRate >= 0.7 ? "#84cc16" : overallRate >= 0.5 ? "#f59e0b" : "#ef4444";
-      ctx.fillStyle = badgeColor;
-      roundRect(ctx, 10, badgeY, badgeW, badgeH, 14);
-      ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 13px Segoe UI";
-      ctx.textAlign = "center";
-      ctx.fillText(score, 10 + badgeW / 2, badgeY + 19);
-      ctx.textAlign = "left";
-
-      const title = sourceName.length > 26 ? `${sourceName.slice(0, 26)}...` : sourceName;
-      ctx.fillStyle = THEME.text;
-      ctx.font = "16px Segoe UI";
-      ctx.fillText(title, 88, 34);
-      ctx.fillStyle = THEME.muted;
-      ctx.font = "12px Segoe UI";
-      const granLabel = granularityMin >= 360 ? "6小时" : granularityMin >= 60 ? "1小时" : "15分钟";
-      ctx.fillText(`${selected === AUTO_HEALTH_SOURCE ? "自动来源" : "指定来源"} | ${granLabel}粒度 | 阈值失败>${Math.round(failThreshold * 100)}%`, 88, 54);
-
-      ctx.fillStyle = `${THEME.line}66`;
-      roundRect(ctx, stripLeft - 6, stripTop - 6, stripW + 12, stripH + 12, 10);
-      ctx.fill();
-
-      // SLA three-zone background: healthy (green), warning (amber), risk (red)
-      const yWarn = stripTop + (1 - successThreshold) * stripH;
-      const yRisk = stripTop + (1 - criticalSuccessThreshold) * stripH;
-      const healthyH = Math.max(0, yWarn - stripTop);
-      const warnH = Math.max(0, yRisk - yWarn);
-      const riskH = Math.max(0, stripTop + stripH - yRisk);
-      if (healthyH > 0) {
-        ctx.fillStyle = `${THEME.good}24`;
-        roundRect(ctx, stripLeft, stripTop, stripW, healthyH, 4);
-        ctx.fill();
-      }
-      if (warnH > 0) {
-        ctx.fillStyle = "rgba(245, 158, 11, 0.18)";
-        ctx.fillRect(stripLeft, yWarn, stripW, warnH);
-      }
-      if (riskH > 0) {
-        ctx.fillStyle = `${THEME.danger}20`;
-        roundRect(ctx, stripLeft, yRisk, stripW, riskH, 4);
-        ctx.fill();
-      }
-
-      const thresholdY = stripTop + (1 - successThreshold) * stripH;
-      ctx.strokeStyle = `${THEME.danger}cc`;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(stripLeft, thresholdY);
-      ctx.lineTo(stripLeft + stripW, thresholdY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      const criticalY = stripTop + (1 - criticalSuccessThreshold) * stripH;
-      ctx.strokeStyle = "rgba(245, 158, 11, 0.9)";
-      ctx.setLineDash([3, 5]);
-      ctx.beginPath();
-      ctx.moveTo(stripLeft, criticalY);
-      ctx.lineTo(stripLeft + stripW, criticalY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      const colorForRate = (rate) => {
-        const hue = 3 + Math.round(Math.max(0, Math.min(1, rate)) * 137);
-        return `hsl(${hue} 78% 60%)`;
-      };
-      for (let i = 0; i < n; i++) {
-        const p = series[i];
-        const req = Math.max(1, num(p.requests || 0));
-        const succ = Math.max(0, num(p.success || 0));
-        const fail = Math.max(0, num(p.failed || 0));
-        const rate = Math.max(0, Math.min(1, succ / req));
-        const failRate = Math.max(0, Math.min(1, fail / req));
-        const x = stripLeft + i * (barW + gap);
-        const vH = Math.max(2, Math.round(rate * stripH));
-        const y = stripTop + (stripH - vH);
-        ctx.fillStyle = failRate > failThreshold ? THEME.danger : colorForRate(rate);
-        roundRect(ctx, x, y, barW, vH, 2);
-        ctx.fill();
-        state.healthBars.push({
-          x,
-          y: stripTop,
-          w: barW,
-          h: stripH,
-          source: sourceName,
-          data: p
-        });
-        if (failRate > failThreshold) {
-          ctx.strokeStyle = `${THEME.danger}cc`;
-          ctx.lineWidth = 1;
-          roundRect(ctx, x, y, barW, vH, 2);
-          ctx.stroke();
-        }
-      }
-
-      const firstLabel = formatChinaDateTime(points[0] && points[0].bucketAt).slice(granularityMin >= 360 ? 5 : 11, 16);
-      const lastLabel = formatChinaDateTime(points[points.length - 1] && points[points.length - 1].bucketAt).slice(granularityMin >= 360 ? 5 : 11, 16);
-      ctx.fillStyle = THEME.muted;
-      ctx.font = "12px Segoe UI";
-      ctx.fillText(firstLabel, stripLeft, h - 10);
-      ctx.textAlign = "right";
-      ctx.fillText(lastLabel, stripLeft + stripW, h - 10);
-      ctx.textAlign = "left";
-      ctx.fillStyle = THEME.muted;
-      ctx.font = "11px Segoe UI";
-      ctx.fillText(`总请求 ${compact(overallReq)} | 总失败 ${compact(overallFail)} | 告警点 ${compact(series.filter((p) => {
-        const req = Math.max(1, num(p.requests || 0));
-        return Math.max(0, num(p.failed || 0)) / req > failThreshold;
-      }).length, 0)}`, stripLeft, 14);
-      ctx.textAlign = "right";
-      ctx.fillStyle = THEME.muted;
-      ctx.fillText("绿=健康  黄=预警  红=风险", stripLeft + stripW, 14);
-      ctx.textAlign = "left";
-    }
-
     function drawSuccessFailStacked(points) {
       const { ctx, w, h } = setupCanvas("successFailCanvas");
       if (!points.length) {
@@ -1979,12 +1969,10 @@
       state.authQuotaUpdatedAt = new Date();
       renderAuthQuota();
       renderUserTokenStats();
-      refreshHealthSourceOptions();
       renderStats(d.data.summary || {});
       drawProviderPie(state.statsRows);
       drawModelTopBar(state.statsRows);
       drawUserTokenPie(state.userTokenRows);
-      drawSourceResultMonitor();
     }
 
     async function loadTrend() {
@@ -2006,7 +1994,7 @@
       state.recordRows = d.data || [];
       renderRecords();
       drawHourlyHeat(state.recordRows);
-      drawSourceResultMonitor();
+      renderAuthQuota();
     }
 
     async function loadLogs() {
@@ -2144,55 +2132,6 @@
       applyTheme("auto");
       redrawAfterThemeChange();
     });
-    $("healthSourceSelect").addEventListener("change", (e) => {
-      state.healthSource = e.target.value || AUTO_HEALTH_SOURCE;
-      saveView();
-      drawSourceResultMonitor();
-    });
-    $("healthGranularity").addEventListener("change", (e) => {
-      state.healthGranularityMin = Math.max(1, num(e.target.value || 60));
-      saveView();
-      drawSourceResultMonitor();
-    });
-    $("healthFailThreshold").addEventListener("change", (e) => {
-      state.healthFailThreshold = Math.max(0.001, Math.min(0.5, num(e.target.value || 0.05)));
-      saveView();
-      drawSourceResultMonitor();
-    });
-    $("healthAlertsOnly").addEventListener("change", (e) => {
-      state.healthAlertsOnly = !!e.target.checked;
-      saveView();
-      drawSourceResultMonitor();
-    });
-    $("sourceResultCanvas").addEventListener("mousemove", (e) => {
-      const canvas = $("sourceResultCanvas");
-      const bar = (state.healthBars || []).find((b) => e.offsetX >= b.x && e.offsetX <= (b.x + b.w) && e.offsetY >= b.y && e.offsetY <= (b.y + b.h));
-      if (!bar) {
-        canvas.style.cursor = "default";
-        hideHealthTooltip();
-        return;
-      }
-      canvas.style.cursor = "pointer";
-      showHealthTooltip(e, bar);
-    });
-    $("sourceResultCanvas").addEventListener("mouseleave", () => {
-      $("sourceResultCanvas").style.cursor = "default";
-      hideHealthTooltip();
-    });
-    $("sourceResultCanvas").addEventListener("click", (e) => {
-      const bar = (state.healthBars || []).find((b) => e.offsetX >= b.x && e.offsetX <= (b.x + b.w) && e.offsetY >= b.y && e.offsetY <= (b.y + b.h));
-      if (!bar) return;
-      const startMs = num(bar.data.bucketAt);
-      const granMs = Math.max(1, num(state.healthGranularityMin || 60)) * 60 * 1000;
-      state.recordLink = {
-        source: bar.source || "-",
-        startMs,
-        endMs: startMs + granMs
-      };
-      state.recordsPage = 1;
-      renderRecords();
-      setStatus(`已联动到来源账号 ${state.recordLink.source} 的时间桶明细。`);
-    });
     $("clearRecordLinkBtn").addEventListener("click", () => {
       state.recordLink = null;
       state.recordsPage = 1;
@@ -2212,9 +2151,9 @@
       loadTrend().catch(() => {});
       drawProviderPie(state.statsRows);
       drawModelTopBar(state.statsRows);
-      drawSourceResultMonitor();
       drawSuccessFailStacked(state.trendPoints || []);
       drawHourlyHeat(state.recordRows || []);
+      renderAuthQuota();
     });
 
     setInterval(() => updateCountdownLine(), 1000);
