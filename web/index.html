@@ -1419,7 +1419,8 @@
           if (tb !== ta) return tb - ta;
           return num(b.id || 0) - num(a.id || 0);
         });
-      const calls = [];
+      const groups = [];
+      let remaining = maxCount;
       for (const r of ordered) {
         const requests = Math.max(0, num(r.requests || 0));
         let failed = Math.max(0, num(r.failed || 0));
@@ -1435,15 +1436,20 @@
             failed = 0;
           }
         }
-        for (let i = 0; i < success && calls.length < maxCount; i++) {
-          calls.push({ ok: true, at: r.fetched_at, source: r.source || r.auth_account || key });
+        const group = [];
+        for (let i = 0; i < success && group.length < remaining; i++) {
+          group.push({ ok: true, at: r.fetched_at, source: r.source || r.auth_account || key });
         }
-        for (let i = 0; i < failed && calls.length < maxCount; i++) {
-          calls.push({ ok: false, at: r.fetched_at, source: r.source || r.auth_account || key });
+        for (let i = 0; i < failed && group.length < remaining; i++) {
+          group.push({ ok: false, at: r.fetched_at, source: r.source || r.auth_account || key });
         }
-        if (calls.length >= maxCount) break;
+        if (group.length) {
+          groups.push(group);
+          remaining -= group.length;
+        }
+        if (remaining <= 0) break;
       }
-      return calls.slice(0, maxCount);
+      return groups.reverse().flat();
     }
 
     function renderUserTokenStats() {
