@@ -1,50 +1,39 @@
 # CPA-Monitor
 
-CPA-Monitor 是一个基于 Python + SQLite 的本地监控工具，支持多配置档统计、趋势分析、调用日志查看，并已集成 CPA 授权文件同步到 sub2api 的能力。
-
-## 1. 启动
+CPA-Monitor 鏄竴涓熀浜?Python + SQLite 鐨勬湰鍦扮洃鎺у伐鍏凤紝鏀寔澶氶厤缃。缁熻銆佽秼鍔垮垎鏋愩€佽皟鐢ㄦ棩蹇楁煡鐪嬶紝骞跺凡闆嗘垚 CPA 鎺堟潈鏂囦欢鍚屾鍒?sub2api 鐨勮兘鍔涖€?
+## 1. 鍚姩
 
 ```powershell
 python server.py
 ```
 
-默认访问地址：
-
+榛樿璁块棶鍦板潃锛?
 ```text
 http://127.0.0.1:8088
 ```
 
-页面入口：
-- 监控页：`/`
-- 配置页：`/config.html`
-- 授权同步页：`/auth-sync.html`
+椤甸潰鍏ュ彛锛?- 鐩戞帶椤碉細`/`
+- 閰嶇疆椤碉細`/config.html`
+- 鎺堟潈鍚屾椤碉細`/auth-sync.html`
 
-## 2. 主要功能
+## 2. 涓昏鍔熻兘
 
-- 多配置档（profile）管理：新增、编辑、删除、切换 active
-- 手动拉取和自动定时拉取统计数据
-- 模型、来源账号、真实用户维度统计
-- 趋势图、健康度、日志与明细查询
-- 过期数据自动清理与手动清理
-- 授权同步：将 CPA `/auth-files` 授权文件转换并推送到 sub2api
+- 澶氶厤缃。锛坧rofile锛夌鐞嗭細鏂板銆佺紪杈戙€佸垹闄ゃ€佸垏鎹?active
+- 鎵嬪姩鎷夊彇鍜岃嚜鍔ㄥ畾鏃舵媺鍙栫粺璁℃暟鎹?- 妯″瀷銆佹潵婧愯处鍙枫€佺湡瀹炵敤鎴风淮搴︾粺璁?- 瓒嬪娍鍥俱€佸仴搴峰害銆佹棩蹇椾笌鏄庣粏鏌ヨ
+- 杩囨湡鏁版嵁鑷姩娓呯悊涓庢墜鍔ㄦ竻鐞?- 鎺堟潈鍚屾锛氬皢 CPA `/auth-files` 鎺堟潈鏂囦欢杞崲骞舵帹閫佸埌 sub2api
 
-## 3. 授权同步说明
+## 3. 鎺堟潈鍚屾璇存槑
 
-参数配置入口：`/config.html`（授权同步配置）
-- 同步周期与策略
-- sub2 基础地址与授权（默认 `x-api-key`）
-- 是否校验 SSL、最大处理文件数等
-- 文件过滤策略（含“仅同步已启用文件”）
+鍙傛暟閰嶇疆鍏ュ彛锛歚/config.html`锛堟巿鏉冨悓姝ラ厤缃級
+- 鍚屾鍛ㄦ湡涓庣瓥鐣?- sub2 鍩虹鍦板潃涓庢巿鏉冿紙榛樿 `x-api-key`锛?- 鏄惁鏍￠獙 SSL銆佹渶澶у鐞嗘枃浠舵暟绛?- 鏂囦欢杩囨护绛栫暐锛堝惈鈥滀粎鍚屾宸插惎鐢ㄦ枃浠垛€濓級
 
-执行与查看入口：`/auth-sync.html`
-- 查看同步状态（运行状态、下次执行、上次结果）
-- 手动获取 CPA 认证文件列表并缓存到数据库
-- 勾选文件后执行“同步选中认证文件”
-- 查看同步记录（数据库保存，保留 7 天自动清理）
+鎵ц涓庢煡鐪嬪叆鍙ｏ細`/auth-sync.html`
+- 鏌ョ湅鍚屾鐘舵€侊紙杩愯鐘舵€併€佷笅娆℃墽琛屻€佷笂娆＄粨鏋滐級
+- 鎵嬪姩鑾峰彇 CPA 璁よ瘉鏂囦欢鍒楄〃骞剁紦瀛樺埌鏁版嵁搴?- 鍕鹃€夋枃浠跺悗鎵ц鈥滃悓姝ラ€変腑璁よ瘉鏂囦欢鈥?- 鏌ョ湅鍚屾璁板綍锛堟暟鎹簱淇濆瓨锛屼繚鐣?7 澶╄嚜鍔ㄦ竻鐞嗭級
 
 ## 4. API
 
-### 监控相关
+### 鐩戞帶鐩稿叧
 - `GET /api/health`
 - `GET /api/config`
 - `GET /api/profiles`
@@ -60,7 +49,7 @@ http://127.0.0.1:8088
 - `POST /api/cache/prune`
 - `POST /api/cache/clear`
 
-### 授权同步相关
+### 鎺堟潈鍚屾鐩稿叧
 - `GET /api/auth-sync/status`
 - `GET /api/auth-sync/config`
 - `GET /api/auth-sync/records?limit=200`
@@ -72,27 +61,37 @@ http://127.0.0.1:8088
 - `POST /api/auth-sync/files-enabled`
 - `POST /api/auth-sync/sub2-validate`
 
-## 5. 数据库
+## 5. 鏁版嵁搴?
+榛樿鏁版嵁搴撴枃浠讹細`stats.db`
 
-默认数据库文件：`stats.db`
-
-主要表：
-- `app_config`：全局监控配置
-- `auth_sync_settings`：授权同步参数配置
-- `auth_sync_cached_files`：最近一次获取的 CPA 认证文件缓存
-- `auth_sync_file_records`：文件级同步审计记录
-- `auth_sync_records`：周期/文件同步事件记录（7 天自动清理）
-- `profiles`：监控配置档
-- `usage_records`：聚合明细
-- `pull_snapshots`：趋势快照
-- `pull_logs`：拉取日志
-
+涓昏琛細
+- `app_config`锛氬叏灞€鐩戞帶閰嶇疆
+- `auth_sync_settings`锛氭巿鏉冨悓姝ュ弬鏁伴厤缃?- `auth_sync_cached_files`锛氭渶杩戜竴娆¤幏鍙栫殑 CPA 璁よ瘉鏂囦欢缂撳瓨
+- `auth_sync_file_records`锛氭枃浠剁骇鍚屾瀹¤璁板綍
+- `auth_sync_records`锛氬懆鏈?鏂囦欢鍚屾浜嬩欢璁板綍锛? 澶╄嚜鍔ㄦ竻鐞嗭級
+- `profiles`锛氱洃鎺ч厤缃。
+- `usage_records`锛氳仛鍚堟槑缁?- `pull_snapshots`锛氳秼鍔垮揩鐓?- `pull_logs`锛氭媺鍙栨棩蹇?
 ## 6. Docker Compose 部署
 
-启动：
+### 本地构建
 
 ```powershell
 docker compose up -d --build
+```
+
+### 使用 GitHub Actions 构建的镜像
+
+推送到 `main` 后会自动构建并推送到 GHCR：
+
+```text
+ghcr.io/xkxdym/gpa-monitor:latest
+```
+
+生产环境可直接使用：
+
+```powershell
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 查看状态与日志：
@@ -113,3 +112,5 @@ docker compose down
 ```text
 http://127.0.0.1:18088
 ```
+
+更完整的说明见 [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md)。

@@ -1,11 +1,6 @@
-# 使用本地构建镜像（默认）
 services:
   cpa-monitor:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    # 若已通过 GitHub Actions 推送镜像，可改为仅拉取：
-    # image: ghcr.io/xkxdym/gpa-monitor:latest
+    image: ghcr.io/xkxdym/gpa-monitor:latest
     container_name: cpa-monitor
     restart: unless-stopped
     environment:
